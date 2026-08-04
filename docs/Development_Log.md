@@ -55,3 +55,61 @@
 #### 次回
 
 Issue #2「DB 基盤と Entry（原情報）スキーマ」。Prisma + SQLite を導入し、原情報（S1）の正本となる `Entry` モデルを定義する（`lib/db` / `prisma/` を実装）。原情報の不変前提（更新は新レコード方針）をコメントで明記する。
+
+---
+
+## 2026-08-03
+
+### Issue #2
+
+#### 概要
+
+DB 基盤と Entry（原情報）スキーマ。原情報（Original Information / State Taxonomy S1）を保存できる土台を構築した。今回のスコープは **Entry モデルのみ**。
+
+- 対応 Issue: [personal-os-design#2](https://github.com/akms9366/personal-os-design/issues/2)
+- Pull Request: [personal-os#3](https://github.com/akms9366/personal-os/pull/3)（**レビュー待ち・未 Merge**）
+- Commit 一覧（feature ブランチ `feature/issue-002-db-entry-schema`）:
+  - `d582457` feat: set up Prisma with SQLite and Entry schema
+  - `5413e0c` feat: add Prisma client singleton for DB foundation
+  - （docs: 本ログと README の DB セットアップ手順）
+
+#### 追加
+
+- Prisma + SQLite 導入（`@prisma/client` / `prisma` を 6.19.3 に固定、seed 実行用に `tsx`）
+- `prisma/schema.prisma`: `Entry` モデル（`id, kind[note|journal|bookmark], body, createdAt, source`）
+- 初回 migration `20260802150011_init_entry`
+- `prisma/seed.ts`: 最低限の seed（note / journal / bookmark 各1件、冪等）
+- `lib/db/client.ts`: Prisma Client シングルトン（DB 基盤）
+- npm スクリプト: `db:generate` / `db:migrate` / `db:seed` / `db:studio` と `package.json#prisma.seed`
+- `.env.example`、`.gitignore` に SQLite DB ファイルと `!.env.example`
+- README に DB セットアップ手順・スクリプトを追記
+
+#### 変更
+
+- 骨組みの `prisma/.gitkeep` / `lib/db/.gitkeep` を実ファイルへ置換（削除）
+
+#### 設計判断
+
+- **Entry のみ・状態区別は Issue #3**: 設計（`06 §3` / `State_Taxonomy` S1）に沿い、Entry は原情報の正本とする。`origin` / `state` / 来歴参照（`sourceEntryId`）と「AI は原情報を書き換えない」ガードは Issue #3 の責務であり、本 Issue では実装しない。State / Knowledge / Interpretation / Insight / Suggestion も対象外。
+- **原情報の不変性**: 変更を暗示する `updatedAt` を持たせず、「修正は新版生成」を schema コメントに明記（`14 §11` / `State_Taxonomy §3` S1 / `06 §7`）。
+- **`kind` は enum でなく String**: SQLite は Prisma の enum を非対応のため、`kind` を String とし許容値（`note|journal|bookmark`）をコメントで明示、値の検証はドメイン層（Issue #3+）に委ねる。`06` は物理型を定めない方針のため、これは設計変更ではなく物理設計上の対応。
+- **Prisma 6.x を採用（7 ではない）**: Prisma 7 は新しい `prisma-client` generator（`output` 必須・生成フォルダ管理）が既定で構成が複雑になる。安定・標準的な `@prisma/client` + `prisma-client-js` の 6.19.3 を固定した。Prisma 7 への移行は将来課題。
+- **`source` は必須**: 原情報は出所（Source）・時点を伴う（`Glossary`: Original Information）。AI を Source としない。
+- **`id` は `cuid()`**: 不変・非連番の識別子が原情報レコードに適する。
+- **seed runner は `tsx`**: TS の seed を安定実行するため。`package.json#prisma` の seed 設定は Prisma 7 で deprecated 警告が出るが 6 では正常動作。
+
+#### 今後への影響
+
+- Issue #3（状態区別コア）は本 Entry に `origin` / `state` / `sourceEntryId` を**追加する形**で拡張する（Entry を作り直さない）。不変性ガードもドメイン層（`lib/db` / `lib/domain`）に載せる。
+- `lib/db/client.ts` のシングルトンを以後の全 DB アクセスの共通入口とする。
+- `npm install` がインストールスクリプトをブロックする環境では Prisma Client が自動生成されない。README に `npm run db:generate` を明示し、クローン後の再現性を担保した。
+
+#### 学び
+
+- SQLite × Prisma では enum が使えないため、種別は String＋アプリ層検証が定石。設計が物理型を縛っていないおかげで摩擦なく対応できた。
+- 新しめの npm はインストールスクリプトを保留する。Prisma Client 生成を明示スクリプト化しておくと環境差に強い。
+- Entry を不変前提で設計しておくと、Issue #3 の来歴・状態区別を「追記」で自然に載せられる。
+
+#### 次回
+
+Issue #3「状態区別コア（origin / state / 来歴参照）」。Entry に `origin[human|ai|external]` / `state`（軽量 enum 相当）/ `sourceEntryId` を追加し、`lib/domain` に「AI は原情報を書き換えない」ガードを実装、Vitest で不変条件を担保する。

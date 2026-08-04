@@ -11,15 +11,28 @@
 - Next.js（App Router）+ TypeScript
 - Tailwind CSS
 - ESLint / Prettier
+- Prisma + SQLite（ローカル DB）
 
 ## 起動手順
 
 ```bash
 npm install
+cp .env.example .env   # DATABASE_URL を設定
+npm run db:generate    # Prisma Client 生成
+npm run db:migrate     # DB 作成 + マイグレーション適用（seed も実行される）
 npm run dev
 ```
 
 開発サーバ起動後、http://localhost:3000 にアクセスする。
+
+> 注: `npm install` 時にインストールスクリプトがブロックされる環境では、
+> Prisma Client が自動生成されないため `npm run db:generate` を明示的に実行する。
+
+### データベース
+
+- ローカル DB は SQLite（`prisma/dev.db`、gitignore 済み）。
+- スキーマは `prisma/schema.prisma`。`Entry`（原情報）モデルを定義。
+- データ確認: `npm run db:studio`（Prisma Studio）。
 
 ## スクリプト
 
@@ -32,6 +45,10 @@ npm run dev
 | `npm run typecheck`    | 型チェック（`tsc --noEmit`） |
 | `npm run format`       | Prettier で整形              |
 | `npm run format:check` | Prettier の整形チェック      |
+| `npm run db:generate`  | Prisma Client 生成           |
+| `npm run db:migrate`   | マイグレーション（＋seed）   |
+| `npm run db:seed`      | seed 投入                    |
+| `npm run db:studio`    | Prisma Studio 起動           |
 
 ## ディレクトリ構成（骨組み）
 

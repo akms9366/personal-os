@@ -1,0 +1,42 @@
+// Personal OS — Prisma schema
+// 設計参照: personal-os-design docs/06_Data_Model.md,
+//           docs/99_Reference/State_Taxonomy.md, docs/99_Reference/Glossary.md
+//
+// 本 Issue（#2）のスコープは Entry（原情報）のみ。
+// origin / state / 来歴参照（sourceEntryId）などの状態区別コアは Issue #3 の責務であり、
+// ここでは実装しない。State / Knowledge / Interpretation / Insight / Suggestion も対象外。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Entry — Personal OS の「原情報（Original Information / State Taxonomy S1）」を保持する正本モデル。
+///
+/// 不変（immutable）前提:
+///   - 生成後に内容（kind / body / source）を書き換えない。
+///   - 「修正」は既存レコードの更新ではなく、新しい Entry レコードとして版を生成する
+///     （14_Implementation_Backlog §11「修正は新版生成」/ State_Taxonomy §3 S1）。
+///   - 変更を暗示しないため updatedAt は持たせない。
+///   - 「AI は原情報を書き換えない」ことをデータ層で担保するガードは Issue #3 の責務。
+model Entry {
+  id String @id @default(cuid())
+
+  /// 種別。許容値: "note" | "journal" | "bookmark"。
+  /// SQLite は Prisma enum 非対応のため String とし、許容値の検証はドメイン層（Issue #3+）で行う。
+  kind String
+
+  /// 原情報の本文。
+  body String
+
+  /// 取得時点（不変）。出所・時点を伴う原情報の「時点」（Glossary: Original Information）。
+  createdAt DateTime @default(now())
+
+  /// 出所（Source）。例: "manual" | "quick-capture"。
+  /// AI を Source としない（Glossary: Source ＝ 原情報の起点であり AI は解釈の生成者）。
+  source String
+}
