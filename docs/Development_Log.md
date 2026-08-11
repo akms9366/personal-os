@@ -172,3 +172,95 @@ Issue #3「状態区別コア（origin / state / 来歴参照）」。Entry に 
 #### 次回
 
 Issue #4「レイアウトと5空間ナビ」。主ナビ5タブ（Home / Insights / Knowledge / Finance / Settings、`05 §9.1` 順）を用意し Home のみ実装、他はスタブ。外部サービス名をタブにしない（`05 §9.4`）。#1 依存で #3 とは独立。
+
+---
+
+## 2026-08-12
+
+### Issue #4
+
+#### 概要
+
+レイアウトと5空間ナビゲーション。Personal OS の**画面骨格**（5 Space の主ナビ＋共通シェル＋各 route）を用意した。機能は載せず、「今後の機能を載せられる UI の骨格」を成立させることに範囲を限定する。
+
+- 対応 Issue: [personal-os-design#4](https://github.com/akms9366/personal-os-design/issues/4)
+- Pull Request: [personal-os#5](https://github.com/akms9366/personal-os/pull/5)（**レビュー待ち・未 Merge**）
+- 前提: [personal-os#4](https://github.com/akms9366/personal-os/pull/4)（Issue #3）は Merge 済み（merge commit `0ef96ba`）。本 Issue は #3 と独立で #1 のみに依存。
+- feature ブランチ: `feature/issue-004-layout-navigation`
+
+#### 目的
+
+5 Space（Home / Insights / Knowledge / Finance / Settings）を利用者が移動できる状態にする。各 Space の本格機能は実装せず、共通ナビゲーションと最小のページ骨格を用意する（`05 §9.1`）。
+
+#### 追加
+
+- `lib/navigation/spaces.ts`: 5 Space の**唯一の定義元**（`SPACES` 配列＋`spaceHref` / `getSpace`）。順序・ラベル・役割・実装状態（active/stub）を一元管理。
+- `components/navigation/SpaceNav.tsx`（Client）: 主ナビ。`variant`（sidebar / bottom）で見た目のみ切替え、順序・現在地判定・リンク先は共通化。`usePathname` で現在地を `aria-current="page"` と背景で表現。
+- `components/layout/SpaceScaffold.tsx`: 各ページ共通の骨格（見出し＋役割＋本文領域 or「準備中」）。
+- `app/(app)/layout.tsx`: アプリシェル（PC 左サイドバー / モバイル下部固定バー）。route group `(app)` で URL を汚さず 5 Space に共通シェルを適用。
+- `app/(app)/{home,insights,knowledge,finance,settings}/page.tsx`: 5 route。Home のみ実ページ（最小プレースホルダ）、他4はスタブ。
+
+#### 変更
+
+- `app/page.tsx`: ルート `/` を `/home` へ `redirect`（従来の "Personal OS" 中央表示を置換）。
+
+#### route 設計
+
+- `/` → `/home` へ redirect。Home も他 Space と同じく `/home` で addressable にし、経路を一貫させる（特別扱いの root ページを持たない）。
+- 5 Space = `/home` `/insights` `/knowledge` `/finance` `/settings`。
+- route group `(app)` に 5 Space をまとめ、共通シェル（`(app)/layout.tsx`）を一括適用。複雑な routing は導入しない。
+- ビルドで全 route が静的 prerender されることを確認（`○ (Static)`）。
+
+#### navigation 設計
+
+- 主タブは 5 Space のみ・固定順序（`05 §9.1`：利用頻度と意思決定の順序）。PC/モバイルで順序と意味を変えない（`05 §9.3`）。
+- 現在地表示: アクティブタブに `aria-current="page"` と背景ハイライト。
+- **Quick Capture / Search は主タブに含めない**（`05 §9.1` の横断能力。後続 Issue）。
+- **外部サービス名・AI提供者名を主ナビにしない**（`05 §9.4`）。ラベルは目的ベースの空間名のみ。
+- アイコンライブラリを導入せず、テキストラベルのみで構成。
+
+#### responsive 対応
+
+- PC（`md` 以上）: 左サイドバー（縦ナビ＋アプリ名）＋右本文。
+- モバイル（`md` 未満）: サイドバー非表示、下部固定バー（横ナビ5項目）。本文は下部バー分の余白（`pb-16`）を確保。
+- 検証（dev サーバ 3100）: 1280px でサイドバー表示・下部バー非表示、375px でサイドバー非表示・下部バー全幅固定・横スクロールなしを確認。コンソールエラーなし。
+
+#### 設計 SSOT との整合
+
+- `05 §9.1` 主ナビ順に一致（Home→Insights→Knowledge→Finance→Settings）。
+- `05 §9.4` 禁止事項を遵守（外部サービス名を主ナビにしない／管理設定を前面に出しすぎない）。
+- 各 Space の `purpose` 文言は `05 §9.1` の一言要約に準拠。
+- `99_Reference/Module_Layer_Space_Mapping.md §4` の 5 Space 逆引きと Space 名・粒度が一致。
+
+#### 今回実装しなかった範囲（＝なぜここまでか）
+
+Issue #4 の完了条件は「5タブ遷移／モバイルで崩れない／外部サービス名がタブでない」の3点のみ。骨格 Issue のため、各 Space の**中身**は範囲外とし、後続 Issue の責務を先取りしない：
+
+- Home の現在地／今日／振り返り（#15/#16/#17/#18）→ 空プレースホルダのみ。
+- Quick Capture（#7）/ Inbox（#8）/ Journal（#9）/ Task（#10）/ Calendar（#13/#14）→ 未実装。
+- Settings 実機能（#6）、認証（#5）、AI（#19〜#22）、DB 連携、Finance 機能 → 未実装。
+- スタブ4空間は「準備中」表示のみ。
+
+#### 技術的判断
+
+- **単一定義元（`lib/navigation/spaces.ts`）**: 順序・語彙のドリフトを防ぎ、nav とページで共有。将来の Space 追加・文言変更を1箇所に閉じる。
+- **route group `(app)` ＋共通 `SpaceScaffold`**: レイアウトとページ骨格を共通化しつつ、過剰な UI フレームワーク化・巨大抽象化は避ける（`13` 方針）。
+- **1コンポーネント×variant のナビ**: PC/モバイルで現在地判定ロジックを重複させない。
+- **`redirect('/home')`**: root を Home に寄せる最小実装。中間ダッシュボードを作らない。
+- **スタイルは既存の zinc パレット＋既存 dark mode（`prefers-color-scheme`）に追従**。新テーマシステムやブランドデザインは導入しない。
+
+#### 問題・制約
+
+- `app/globals.css` の `body { font-family: Arial }` が geist フォント変数を上書きしている既存挙動は本 Issue の範囲外として温存（フォント統一は別途）。
+- 画面の視覚スクリーンショットはプレビューペイン非表示のため取得できず、`read_page` / computed CSS / DOM 計測でレイアウト・現在地・レスポンシブ・オーバーフローを検証した。
+- モバイルナビはテキストのみ・最小限。アイコンや凝ったモバイル専用 UI は意図的に未実装。
+
+#### 今後への影響
+
+- 各 Space ページは `SpaceScaffold` の本文領域に機能を載せていける（#6 Settings、#7 Quick Capture、#15〜#18 Home 領域 等）。
+- Space を増やす場合は `SPACES` に1エントリ追加すれば nav・route 方針が揃う（ただし主タブ5つ上限は `05 §9.2` を尊重）。
+- Quick Capture / Search（横断能力）は主タブではなく別入口として後続 Issue で追加する前提を骨格に明示済み。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 13/13 成功（Issue #3 の不変条件テストを維持）/ `npm run build` 成功（5 Space ＋ `/` を静的 prerender）。
