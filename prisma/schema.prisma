@@ -1,10 +1,12 @@
 // Personal OS — Prisma schema
 // 設計参照: personal-os-design docs/06_Data_Model.md,
-//           docs/99_Reference/State_Taxonomy.md, docs/99_Reference/Glossary.md
+//           docs/99_Reference/State_Taxonomy.md, docs/99_Reference/Glossary.md,
+//           docs/14_Implementation_Backlog.md §2（軽量フィールド方式）
 //
-// 本 Issue（#2）のスコープは Entry（原情報）のみ。
-// origin / state / 来歴参照（sourceEntryId）などの状態区別コアは Issue #3 の責務であり、
-// ここでは実装しない。State / Knowledge / Interpretation / Insight / Suggestion も対象外。
+// 状態区別コア（Issue #3）は「単一 Entry モデル方式」で表現する。
+// 派生専用モデル（Interpretation / Suggestion / Decision 等）は作らず、
+// Entry に origin / state / sourceEntryId を持たせて原情報・AI派生・利用者決定を区別する。
+// 値域の検証と不変条件（AI は原情報を書き換えない 等）は lib/domain のガードで担保する。
 
 generator client {
   provider = "prisma-client-js"
@@ -39,4 +41,20 @@ model Entry {
   /// 出所（Source）。例: "manual" | "quick-capture"。
   /// AI を Source としない（Glossary: Source ＝ 原情報の起点であり AI は解釈の生成者）。
   source String
+
+  /// 起源（Origin / 06 §7 所有権）。許容値: "human" | "ai" | "external"。
+  /// System（S6/S7 実行系）は Entry の対象外のため含めない。
+  /// SQLite は Prisma enum 非対応のため String とし、値域の検証は lib/domain で行う。
+  origin String @default("human")
+
+  /// 情報状態（State Taxonomy）。許容値（MVP 軽量サブセット）: "S1" | "S2" | "S4" | "S5"。
+  /// S1=原情報 / S2=解釈 / S4=提案 / S5=決定。当面 S1 のみ使用し、語彙は先に固定する。
+  state String @default("S1")
+
+  /// 来歴参照（Provenance link / State_Taxonomy §5）。
+  /// 派生（state ∈ {S2,S4,S5}）は親 Entry を必須参照。原情報（S1）は null。
+  /// 「派生なら必須／原情報なら null」の条件付き必須は lib/domain のガードで担保する。
+  sourceEntryId String?
+  sourceEntry   Entry?  @relation("EntryProvenance", fields: [sourceEntryId], references: [id])
+  derivedEntries Entry[] @relation("EntryProvenance")
 }
