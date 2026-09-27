@@ -3,6 +3,7 @@ import {
   EntryInvariantError,
   assertAiCannotWriteOriginal,
   assertOriginalImmutable,
+  assertRevisionTargetIsOriginal,
   validateEntryInvariants,
   type EntryShape,
 } from "./guard";
@@ -107,5 +108,23 @@ describe("assertOriginalImmutable — 原情報の不変性", () => {
 
   it("派生(S2)は更新可能（通過）", () => {
     expect(() => assertOriginalImmutable({ state: "S2" })).not.toThrow();
+  });
+});
+
+describe("assertRevisionTargetIsOriginal — 新版生成の対象制限（Issue #8）", () => {
+  it("原情報(S1)は revise 対象にできる（通過）", () => {
+    expect(() => assertRevisionTargetIsOriginal({ state: "S1" })).not.toThrow();
+  });
+
+  it("派生(S2)は revise 対象にできない（throw）", () => {
+    expect(() => assertRevisionTargetIsOriginal({ state: "S2" })).toThrow(
+      EntryInvariantError,
+    );
+  });
+
+  it("不正な state は throw", () => {
+    expect(() => assertRevisionTargetIsOriginal({ state: "S9" })).toThrow(
+      EntryInvariantError,
+    );
   });
 });
