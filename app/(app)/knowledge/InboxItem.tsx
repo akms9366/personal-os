@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
 import {
   deleteInboxEntry,
@@ -26,6 +27,7 @@ function formatTimestamp(iso: string): string {
 }
 
 export function InboxItem({ entry }: { entry: InboxEntryView }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [reviseState, reviseAction, revisePending] = useActionState(
     reviseInboxEntry,
@@ -47,6 +49,10 @@ export function InboxItem({ entry }: { entry: InboxEntryView }) {
       const result = await deleteInboxEntry(initialState, formData);
       if (result.error) {
         setDeleteError(result.error);
+      } else {
+        // 直接呼び出し（フォーム送信を介さない）では revalidatePath だけではこの
+        // ページの表示が自動更新されないため、削除成功時のみ明示的に refresh する。
+        router.refresh();
       }
     });
   }

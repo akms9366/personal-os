@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { updateTaskStatusAction } from "./actions";
 import type { TaskStatus } from "@/lib/domain/task";
@@ -21,6 +22,7 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 const STATUS_OPTIONS: TaskStatus[] = ["todo", "doing", "hold", "done"];
 
 function TaskRow({ task }: { task: TaskView }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function handleChange(nextStatus: string) {
@@ -29,6 +31,9 @@ function TaskRow({ task }: { task: TaskView }) {
     formData.set("status", nextStatus);
     startTransition(async () => {
       await updateTaskStatusAction({}, formData);
+      // revalidatePath はサーバ側キャッシュを無効化するのみで、直接呼び出し（フォーム送信を
+      // 介さない）の場合はクライアントの再描画を自動でトリガーしないため明示的に refresh する。
+      router.refresh();
     });
   }
 
