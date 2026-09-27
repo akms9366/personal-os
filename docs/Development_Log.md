@@ -792,3 +792,54 @@ Google Calendar 接続（read-only）。Epic4 Calendar の先頭。設計SSOTが
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
 - dev サーバで実挙動確認: Home に単一の「今日」見出し配下に「予定」「タスク」のサブ見出しが表示されることを確認／Quick Capture ボタンが引き続きどの画面からも到達可能であることを確認／Issue #15 で修正した状態遷移の即時反映（`router.refresh()`）が本変更後も回帰していないことを確認（DB直接クエリと突き合わせ）。コンソールエラーなし。
+
+---
+
+## 2026-09-27（続き12）
+
+### Issue #17
+
+#### 概要
+
+振り返り領域。Epic5 の中核。夜の短い振り返りを、評価・スコアを強制せず記録できるようにした。本 Issue の着手にあたり、以前から持ち越していた設計上の宿題（`isDerivedState` の二値化）を解消した。
+
+- 対応 Issue: [personal-os-design#17](https://github.com/akms9366/personal-os-design/issues/17)
+- Pull Request: personal-os#18（作成予定）
+- feature ブランチ: `feature/issue-017-reflection`
+- 前提: Issue #9（PR #10）・Issue #16（PR #17）Merge 済み。
+
+#### 追加
+
+- `lib/domain/entry.ts`: `STATES` に `"S8"` を追加。`isOriginalState` を `state === "S1"` の単一比較から `ORIGINAL_STATES = ["S1", "S8"]` への包含判定に一般化した（後述、PR #4 レビュー IMPORTANT 指摘の解消）。
+- `lib/domain/guard.test.ts`: S8 が S1 と同じ「本人の一次記録」として扱われることを確認するテスト6件を追加（AI生成禁止・sourceEntryId禁止・不変性・revise対象になれること）。
+- `lib/db/entries.ts`: `createEntry()` に任意の `state` パラメータを追加（既定 `"S1"`）。S8 等、S1 以外の「本人の一次記録」を生成できるようにした。
+- `lib/home/timeOfDay.ts` / `timeOfDay.test.ts`: 時間帯判定（`morning`/`day`/`night`、6-18時境界）。純粋関数としてテスト。
+- `app/(app)/home/actions.ts`: `saveReflectionAction` — `Entry(kind=journal, source="reflection", state=S8)` を保存。保存先は Journal 基盤（`createEntry`, Issue #9）をそのまま利用。
+- `app/(app)/home/ReflectionForm.tsx`: 振り返り入力。**自由記述1欄のみ**（完了・保留・変更理由・感触・明日メモを個別の必須項目に分解しない）。時間帯に応じて既定の展開状態が変わる（夜=展開、それ以外=折りたたみ、ただしいつでも手動で開ける）。
+
+#### 変更
+
+- `app/(app)/home/page.tsx`: Home 下部のプレースホルダを「振り返り」セクションに置き換え。`getTimeOfDay()` の結果に基づき `ReflectionForm` の既定展開状態を制御。`export const dynamic = "force-dynamic"` を追加（後述）。
+
+#### 設計判断：`isDerivedState` 二値化の解消（PR #4 レビュー IMPORTANT #1）
+
+- **問題**: 従来 `isOriginalState(state) = (state === "S1")` という単一比較だったため、S8（振り返り）を追加すると、S8 が「派生」として扱われ `validateEntryInvariants` が誤って `sourceEntryId` を必須化してしまう。`06 §2.2`/`State_Taxonomy §2` は S1・S8（将来的にはS0も）を共に「本人の一次記録」と規定しており、この二値化は設計と矛盾していた。
+- **対応**: `ORIGINAL_STATES = ["S1", "S8"]` という配列への包含判定に一般化した。`isOriginalState`/`isDerivedState` のシグネチャ・呼び出し側（`guard.ts` 全体）は変更不要で、`entry.ts` 内の定義変更のみで解決した。将来 S0（意図・制約）を追加する場合も同様にこの配列へ追加するだけでよい。
+- **これにより自動的に**: `assertAiCannotWriteOriginal`（AIはS8を書けない）・`assertOriginalImmutable`（S8はin-place更新禁止）・`assertRevisionTargetIsOriginal`（S8はrevise対象になれる）が、S1と同じ規約でS8にも適用されるようになった。ガード関数自体は一切変更していない。
+
+#### 設計判断：振り返り入力の設計
+
+- **自由記述1欄のみ**: Issue の「やること」に列挙された「完了・保留・変更理由・感触・明日メモ」は入力すべき**話題**であり、5つの必須項目に分解すると「強制的な日報」（`11 §3` 禁止事項）になってしまう。1つのテキストエリアで自由に書けるようにし、placeholder でトピックの例を示すに留めた。
+- **保存は Journal 基盤をそのまま再利用**: Issue #17 の背景に明記されたとおり、`createEntry({ kind: "journal", ... })` を呼ぶだけで完結し、新しいモデル・テーブルは一切追加していない。
+- **時間帯による重み付けは「振り返りの既定展開状態」のみを変える最小実装**: 三領域（現在地・今日・振り返り）を並び替えたり、内容量を動的に変えたりする複雑な仕組みは作らず、`11 §4.3` の「夜は今日と振り返りを中心に」を、振り返りセクションの初期表示状態（夜=展開／それ以外=折りたたみ、常に手動で開閉可能）という一点に絞って実装した。`size:M` の見積りに対し過不足のない範囲と判断。
+- **`app/(app)/home/page.tsx` に `export const dynamic = "force-dynamic"` を追加**: `getTimeOfDay()` はサーバの実時刻に依存するが、Next.js のデフォルトの静的最適化のもとでは prerender 時点の時刻に固定されてしまい、実際に夜になっても振り返りの既定展開状態が変わらないという不具合になることに気づいた（ビルド出力で `/home` が静的マーカー `○` になっていたことから発見）。`force-dynamic` を指定し、毎リクエストで実際の時刻・最新のタスク/カレンダーデータを反映するようにした。
+
+#### 今後への影響
+
+- Issue #18（翌日への引継ぎ）は、本 Issue で保存した `Entry(state=S8)` を読み、前日の振り返り・保留を翌日の Home に表示する形で拡張する。
+- `ORIGINAL_STATES` への S0（意図・制約）追加は、S0 を実際に使う Issue が出てきた時点で行う（現時点では未使用のため先取りしない）。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 25/25 成功（S8関連6件・timeOfDay関連3件を新規追加、既存16件に影響なし）/ `npm run build` 成功（`/home` が `force-dynamic` により動的レンダリングに変わったことをビルド出力で確認）。
+- dev サーバで実挙動確認: 日中（実行時刻ベース）は振り返りが折りたたみ表示（「振り返りを記録する」リンクのみ）であることを確認／クリックで展開しフォームが表示されることを確認／振り返りを記録→「記録しました。」表示／DB直接クエリで `kind=journal, origin=human, state=S8, sourceEntryId=null` として保存されていることを確認／Inbox（Knowledge）一覧に振り返り（S8）が混在しないことを確認（既存の `state="S1"` フィルタがそのまま機能）。コンソールエラーなし。

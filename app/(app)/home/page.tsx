@@ -2,8 +2,10 @@ import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { getSpace } from "@/lib/navigation/spaces";
 import { listTasks } from "@/lib/db/tasks";
 import { getTodayEvents } from "@/lib/calendar/sync";
+import { getTimeOfDay } from "@/lib/home/timeOfDay";
 import type { TaskStatus } from "@/lib/domain/task";
 import { CurrentState } from "./CurrentState";
+import { ReflectionForm } from "./ReflectionForm";
 import { TaskCreateForm } from "./TaskCreateForm";
 import { TaskList } from "./TaskList";
 import { TodayEvents } from "./TodayEvents";
@@ -11,8 +13,13 @@ import { TodayEvents } from "./TodayEvents";
 // Home 空間（05 §4「今日行動するための画面」）。
 // Issue #11 で「今日」領域のうちタスク（一覧・状態遷移）を実装。
 // Issue #14 で今日の予定（read-only）を追加。
-// Issue #15 で現在地領域（要約）を追加。振り返りは #17（Epic5）で追加する。
+// Issue #15 で現在地領域（要約）を追加。
+// Issue #17 で振り返り領域を追加（三領域が揃い Epic5 の主要部分が完成）。
 const space = getSpace("home")!;
+
+// 時間帯（Issue #17）は毎リクエストの実時刻で判定する必要があるため、静的最適化を無効化する
+// （さもないと prerender 時点の時刻に固定され、夜になっても振り返りの既定展開状態が変わらない）。
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const [tasks, todayEvents] = await Promise.all([listTasks(), getTodayEvents()]);
@@ -29,6 +36,8 @@ export default async function HomePage() {
   const sortedEvents = [...todayEvents.events].sort(
     (a, b) => a.start.getTime() - b.start.getTime(),
   );
+
+  const timeOfDay = getTimeOfDay();
 
   return (
     <SpaceScaffold space={space}>
@@ -76,9 +85,12 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-          振り返りは今後この領域に構成します（後続 Issue #17）。
-        </div>
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+            振り返り
+          </h2>
+          <ReflectionForm defaultExpanded={timeOfDay === "night"} />
+        </section>
       </div>
     </SpaceScaffold>
   );
