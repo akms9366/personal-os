@@ -1,20 +1,34 @@
 import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { getSpace } from "@/lib/navigation/spaces";
 import { listTasks } from "@/lib/db/tasks";
+import { getTodayEvents } from "@/lib/calendar/sync";
 import { TaskCreateForm } from "./TaskCreateForm";
 import { TaskList } from "./TaskList";
+import { TodayEvents } from "./TodayEvents";
 
 // Home 空間（05 §4「今日行動するための画面」）。
-// Issue #11 で「今日」領域のうちタスク（一覧・状態遷移）を実装する。
+// Issue #11 で「今日」領域のうちタスク（一覧・状態遷移）を実装。
+// Issue #14 で今日の予定（read-only）を追加。
 // 現在地・振り返りは #15/#17（Epic5）で追加する。
 const space = getSpace("home")!;
 
 export default async function HomePage() {
-  const tasks = await listTasks();
+  const [tasks, todayEvents] = await Promise.all([listTasks(), getTodayEvents()]);
 
   return (
     <SpaceScaffold space={space}>
       <div className="flex flex-col gap-6">
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+            今日の予定
+          </h2>
+          <TodayEvents
+            connected={todayEvents.connected}
+            events={todayEvents.events}
+            error={todayEvents.error}
+          />
+        </section>
+
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             今日のタスク

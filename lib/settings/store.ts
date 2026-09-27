@@ -100,3 +100,19 @@ export async function disconnectCalendar(): Promise<void> {
     },
   });
 }
+
+/// 今日の予定の取得に成功した記録（Issue #14）。
+export async function recordCalendarSyncSuccess(): Promise<void> {
+  await prisma.settings.update({
+    where: { id: SETTINGS_ID },
+    data: { calendarLastSyncAt: new Date(), calendarLastSyncError: null },
+  });
+}
+
+/// 今日の予定の取得に失敗した記録（Issue #14、`11 §9` 誠実な失敗）。
+export async function recordCalendarSyncError(message: string): Promise<void> {
+  await prisma.settings.update({
+    where: { id: SETTINGS_ID },
+    data: { calendarLastSyncError: message },
+  });
+}

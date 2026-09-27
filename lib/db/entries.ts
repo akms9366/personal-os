@@ -40,10 +40,14 @@ export async function createEntry(params: {
 /// Inbox に表示する「現在版の原情報」のみを一覧取得する（Issue #8）。
 /// state="S1" に限定する: Inbox は原情報の受信箱であり、AI 派生（S2 等）を原情報と
 /// 同じ見た目で混在させない（P3 来歴 / 05 §3.1「原情報とAI要約を同じ見え方にしない」）。
+/// kind="event" は除外する: Google Calendar 由来（Issue #14）は BrainDump/Quick Capture の
+/// 受信箱と性質が異なり（利用者が明示的に残した断片ではない）、Home の「今日の予定」でのみ
+/// read-only 表示する。Inbox に混在させると「編集（新版生成）」「削除」「タスク化」操作が
+/// 外部由来データに対しても表示されてしまい、意味的に不適切（実機検証で発見・修正）。
 /// revisedBy が空 = まだ誰にも新版で置き換えられていない Entry。旧版は自動的に一覧から外れる。
 export async function listCurrentEntries() {
   return prisma.entry.findMany({
-    where: { state: "S1", revisedBy: { none: {} } },
+    where: { state: "S1", kind: { not: "event" }, revisedBy: { none: {} } },
     orderBy: { createdAt: "desc" },
   });
 }
