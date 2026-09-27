@@ -356,3 +356,43 @@ Settings 骨格。`05 §8` の制御面のうち、`14 PR-06` が確定した MV
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 13/13 成功（既存テストに影響なし）/ `npm run build` 成功。
 - dev サーバで実挙動確認: API キー入力→保存→マスク表示（末尾4桁）に反映／ページリロード後も保存値が読み込まれる／レンダリング後の HTML に平文キーが含まれないことを `document.documentElement.outerHTML` で確認。コンソールエラーなし（HMR の WebSocket 警告のみ、プレビュー環境起因で無関係）。
+
+---
+
+## 2026-09-27（続き2）
+
+### Issue #7
+
+#### 概要
+
+Quick Capture 入口。Personal OS の日中ループの中心（`11 §5`）。どの画面からも1操作で開き、分類を一切求めず原情報（S1）として即記録する。Issue #3 で確立した「全書込みはドメインガード経由」の規約を、実際の書込み経路として初めて適用した。
+
+- 対応 Issue: [personal-os-design#7](https://github.com/akms9366/personal-os-design/issues/7)
+- Pull Request: personal-os#8（作成予定）
+- feature ブランチ: `feature/issue-007-quick-capture`
+- 前提: Issue #4（PR #5）・Issue #3（PR #4）は Merge 済み（依存関係どおり）。
+
+#### 追加
+
+- `lib/db/entries.ts`: `createEntry()` — Entry 書込みの唯一の入口。`prisma.entry.create` を直接呼ばず、必ず `lib/domain/guard.ts` の `validateEntryInvariants` を通してから書き込む。Issue #3 の Development Log で予告した「実際の write ラッパ」をここで実装。
+- `lib/capture/actions.ts`: `saveQuickCapture` Server Action。入力必須のみ検証し、常に `Entry(kind=note, origin=human, source="quick-capture")` を生成（分類 UI は一切持たない）。
+- `components/capture/QuickCapture.tsx`（Client）: フローティングボタン＋モーダル。グローバルショートカット `c`（入力中・修飾キー押下時は無視）で開き、`Escape` で閉じる。`Cmd/Ctrl+Enter` で送信。保存成功後はフォームをリセットして入力欄にフォーカスを戻し、モーダルは開いたまま連続記録できるようにした。
+- `app/(app)/layout.tsx`: `<QuickCapture />` を追加し、5 Space 共通シェルに組み込むことで全画面から到達可能にした。
+
+#### 設計判断
+
+- **Quick Capture は主タブに追加しない**: `05 §9.1`／`11 §5` により横断能力として扱い、5空間ナビ（`lib/navigation/spaces.ts`）とは別に共通シェルへ直接組み込んだ。ナビの定義元を汚さない。
+- **分類 UI を一切持たない**: Issue #7 の完了条件は常に `kind=note` を生成すること。将来の `kind=journal`（#9）・タスク化（#12）は利用者の明示操作による別経路であり、Quick Capture 自体に分類選択を持たせると「分類を強制しない」（`11 §5` 必ず守ること）という原則にかえって反する。
+- **`lib/db/entries.ts` を新設し、Prisma を直接叩かない**: Issue #3 で確立した規約の実適用。将来の書込み経路（Inbox 編集 #8、Journal #9、タスク化 #12 等）もこの層に関数を追加していく前提。
+- **保存成功後もモーダルを閉じない**: 「思いついたことをすぐ残す」体験（`11 §5`）を最大化するため、都度モーダルを開き直す手間を無くし、連続入力を主要フローとして設計した。
+- **ショートカットキーは `c`**: 設計は具体キーを指定していないため、単一文字・修飾キー不要の一般的な "compose" 慣習（Gmail/Linear 等）を採用。入力中の要素にフォーカスがある場合は発火しないようガードした。
+
+#### 今後への影響
+
+- `lib/db/entries.ts` は Inbox（#8: 一覧・編集・削除）、Journal（#9: kind=journal 生成）、Quick Capture → Task 化（#12: 派生生成時のガード呼び出し）が今後利用する共通基盤になる。
+- Quick Capture で生成した Entry は現時点でどの画面にも一覧表示されない（Inbox は #8 で実装）。本 Issue の完了条件は「保存できること」のみのため、閲覧 UI は意図的にこの Issue の範囲外とした。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 13/13 成功（既存テストに影響なし。`createEntry` 自体は薄い書込みラッパのため DB 統合テストは追加せず、ブラウザでの実書込み確認で担保）/ `npm run build` 成功。
+- dev サーバで実挙動確認: `/knowledge` など任意の画面で `c` キー押下→モーダルが開く／`Ctrl+Enter` で送信→保存成功メッセージ表示・入力欄クリア・モーダルは開いたまま／連続で2件目を記録→`Escape` で正常に閉じる／DB を直接クエリし、生成された Entry が `kind=note, origin=human, state=S1, source=quick-capture, sourceEntryId=null` であることを確認（検証用データはテスト後に削除）。コンソールエラーなし（HMR警告のみ）。
