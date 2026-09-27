@@ -1,5 +1,10 @@
 import type { TaskStatus } from "@/lib/domain/task";
 
+export interface HandoffView {
+  reflection?: { date: Date; body: string };
+  heldTaskTitles: string[];
+}
+
 export interface CurrentStateProps {
   taskCounts: Record<TaskStatus, number>;
   calendar: {
@@ -8,6 +13,7 @@ export interface CurrentStateProps {
     todayEventCount: number;
     nextEvent?: { start: Date; summary: string };
   };
+  handoff?: HandoffView;
 }
 
 function formatTime(date: Date): string {
@@ -15,9 +21,25 @@ function formatTime(date: Date): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function formatDate(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+const REFLECTION_PREVIEW_MAX_LENGTH = 150;
+
+function previewReflection(body: string): string {
+  const firstLine = body.split("\n")[0].trim();
+  const source = firstLine.length > 0 ? firstLine : body.trim();
+  if (source.length <= REFLECTION_PREVIEW_MAX_LENGTH) {
+    return source;
+  }
+  return `${source.slice(0, REFLECTION_PREVIEW_MAX_LENGTH - 1)}…`;
+}
+
 // 現在地（Current State）領域（Issue #15、Glossary「今の状況・未解決事項・注意すべき変化」の要約）。
 // 全履歴の羅列ではなく要約に留める。根拠のない緊急度（「遅れています」等）は出さない。
-export function CurrentState({ taskCounts, calendar }: CurrentStateProps) {
+export function CurrentState({ taskCounts, calendar, handoff }: CurrentStateProps) {
   const unresolvedTaskCount =
     taskCounts.todo + taskCounts.doing + taskCounts.hold;
 
@@ -50,6 +72,25 @@ export function CurrentState({ taskCounts, calendar }: CurrentStateProps) {
         <li>{taskSummary}</li>
         <li>{calendarSummary}</li>
       </ul>
+
+      {handoff && (handoff.reflection || handoff.heldTaskTitles.length > 0) ? (
+        <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <h3 className="mb-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            引継ぎ
+          </h3>
+          <ul className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+            {handoff.reflection ? (
+              <li>
+                前回の振り返り（{formatDate(handoff.reflection.date)}）:{" "}
+                {previewReflection(handoff.reflection.body)}
+              </li>
+            ) : null}
+            {handoff.heldTaskTitles.length > 0 ? (
+              <li>保留中: {handoff.heldTaskTitles.join("・")}</li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }
