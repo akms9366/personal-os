@@ -610,3 +610,49 @@ Quick Capture → Task 化。Epic 3 の最後の Issue。Inbox の Entry から�
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
 - dev サーバで実挙動確認: Inbox の Journal エントリを「タスク化」→ Home の今日のタスク一覧に反映／DB 直接クエリで `Task.originEntryId` が元 Entry を正しく参照し、元 Entry が一切変更されず残っていることを確認／タスク化後も Inbox 一覧に元の Entry が変わらず表示されることを確認。加えて `tsx` 経由の一時検証で、長文（100文字）が80文字＋省略記号に切り詰められること、複数行本文では先頭行のみがタイトルになることを確認（検証後にスクリプトと一時データを削除）。コンソールエラーなし（HMR警告のみ）。
+
+---
+
+## 2026-09-27（続き8）
+
+### Issue #13
+
+#### 概要
+
+Google Calendar 接続（read-only）。Epic4 Calendar の先頭。設計SSOTが「MVP最大の外部依存・最大リスク」と明示する Issue のため、着手前にユーザーへ実装方式を確認し、**ICS 秘密URL方式**（OAuth 難航時の代替として `14 §8` が明記する方式）を採用する旨の承認を得てから実装した。
+
+- 対応 Issue: [personal-os-design#13](https://github.com/akms9366/personal-os-design/issues/13)
+- Pull Request: personal-os#14（作成予定）
+- feature ブランチ: `feature/issue-013-calendar-ics`
+- 前提: Issue #6（PR #7）Merge 済み。
+
+#### 追加
+
+- `prisma/schema.prisma`: `Settings` に `calendarIcsUrl`（平文保持、画面には一切渡さない）・`calendarLastSyncAt`・`calendarLastSyncError` を追加。migration `20260927053129_add_calendar_ics_connection`。
+- `lib/calendar/ics.ts`: `fetchIcsText()`（Issue #14 の取得処理と共有する予定）・`validateIcsUrl()`（`BEGIN:VCALENDAR` を含むかで簡易検証）。
+- `lib/settings/store.ts`: `SettingsView` に `calendarConnected`/`calendarLastSyncAt`/`calendarLastSyncError` を追加。`connectCalendar()`（検証成功時のみ保存）・`disconnectCalendar()`・`getCalendarIcsUrl()`（Issue #14 専用、UIには渡さないサーバ内部関数）。
+- `app/(app)/settings/actions.ts`: `connectCalendarAction`／`disconnectCalendarAction`。
+- `app/(app)/settings/CalendarConnectionForm.tsx`: 未接続時はURL入力フォーム、接続済み時は状態・最終同期時刻・切断ボタンを表示。
+
+#### 変更
+
+- `app/(app)/settings/page.tsx`: 「Connections」枠のスタブを `CalendarConnectionForm` に置き換え。
+- `eslint.config.mjs`: `@typescript-eslint/no-unused-vars` に `argsIgnorePattern: "^_"` を明示設定（Server Action の `(prevState, formData)` 呼び出し規約上、両方とも未使用になるケース＝`disconnectCalendarAction` で警告が出たため、既存の `_` 接頭辞慣習を正式にルール化した）。
+
+#### 設計判断
+
+- **OAuth ではなく ICS 秘密URL方式を採用**（ユーザー承認済み）: `14 §11` セルフレビューが「難航時はICSへ切替」としていたものを、`14 §1` の判断基準（1.毎日使いやすい 2.保守しやすい 3.シンプル 4.実装速度）に照らし、最初からICSを選択。Google Cloud Console でのOAuthクライアント登録・同意画面設定・トークンリフレッシュ実装が不要になり、実装・保守コストを大幅に下げた。
+- **「読み取りスコープのみ」の完了条件はICSという方式自体で満たす**: ICS配信は原理的に読み取り専用（書込みAPIが存在しない）。OAuthのスコープ制御に相当する安全性を、方式の選択そのもので実現しており、追加のアクセス制御コードは不要と判断した。
+- **接続検証に成功した場合のみ保存する**: 壊れたURLや誤入力を「接続済み」として保存すると、実体のない接続状態を利用者に見せてしまう（`11 §9` 誠実な失敗）。`connectCalendar()` は検証(`validateIcsUrl`)が成功したときのみ DB を更新し、失敗時は既存の状態を変更せずエラーメッセージのみ返す。
+- **秘密URLは画面に一切渡さない**: API キー（Issue #6）は末尾4桁のマスク表示だったが、ICS秘密URLは全体が秘密情報であり部分表示の意味がないため、真偽値（接続済み/未接続）のみを画面に渡す設計とした。`getCalendarIcsUrl()`（生のURLを返す関数）はサーバ内部専用とし、Client Component には一切公開しない。
+- **`fetchIcsText`/`validateIcsUrl` を Issue #14 と共有できる形で `lib/calendar/ics.ts` に切り出した**: 接続検証（#13）と実際のイベント取得・表示（#14）は同じ「ICSを取得する」処理を必要とするため、二重実装を避けた。
+
+#### 今後への影響
+
+- Issue #14（今日の予定の表示）は `getCalendarIcsUrl()` で秘密URLを取得し、`fetchIcsText()` で本文を取得したうえで、実際の VEVENT パースと「今日」分の抽出・表示を実装する。
+- 同期失敗時の表示（`calendarLastSyncError`）は #13 では書き込みパスを用意したのみで、実際に同期を試みて失敗を記録する処理は #14 のイベント取得時に初めて発生する。
+
+#### 検証
+
+- `npm run lint` 成功（設定調整後）/ `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
+- dev サーバで実挙動確認: 無効なURL（`https://example.com/not-a-calendar`）で接続を試み、「接続に失敗しました（HTTP 404）」が表示され状態が「未接続」のまま変わらないことを確認／実在する公開ICSフィード（Google 提供の米国祝日カレンダー公開ICS）で接続→「状態: 接続済み」・最終同期時刻が表示されることを確認／DB直接クエリで `calendarIcsUrl` が保存され `calendarLastSyncError` が null であることを確認／切断→フォームが未接続状態に戻り、DB上も全フィールドが `null` にクリアされることを確認。コンソールエラーなし。
