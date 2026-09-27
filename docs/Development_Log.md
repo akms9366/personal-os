@@ -574,3 +574,39 @@ Task モデルと CRUD。行動（タスク）を扱う土台。UI は持たず�
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
 - dev サーバで実挙動確認: タスク作成→一覧に反映／状態を `todo→doing→hold→todo→done` と遷移させ、逆遷移（hold→todo）も含めて順序が強制されないことを確認／各遷移をDB直接クエリで確認／中立的な状態ラベルが表示されることを確認（検証用データは終了後に削除）。コンソールエラーなし（HMR警告のみ）。
+
+---
+
+## 2026-09-27（続き7）
+
+### Issue #12
+
+#### 概要
+
+Quick Capture → Task 化。Epic 3 の最後の Issue。Inbox の Entry から、利用者の明示操作でタスクを起票できるようにした。AI は関与しない（`11 §6`）。
+
+- 対応 Issue: [personal-os-design#12](https://github.com/akms9366/personal-os-design/issues/12)
+- Pull Request: personal-os#13（作成予定）
+- feature ブランチ: `feature/issue-012-capture-to-task`
+- 前提: Issue #8（PR #9）・Issue #11（PR #12）Merge 済み。
+
+#### 追加
+
+- `lib/db/tasks.ts`: `convertEntryToTask(entryId)` — Entry を読み取り、本文の先頭行（80文字超は省略）をタイトルに、全文を `note` に、`originEntryId` に元 Entry を設定して `createTask` を呼ぶ。Entry 自体は一切変更しない。
+- `app/(app)/knowledge/actions.ts`: `taskifyInboxEntry` Server Action。成功後は `/home`（タスク一覧）を revalidate。
+- `app/(app)/knowledge/InboxItem.tsx`: 各 Inbox 項目に「タスク化」ボタンを追加（編集・削除と並置）。成功時は「タスク化しました（Home の今日のタスクに追加）。」を表示。
+
+#### 設計判断
+
+- **タイトルは本文の先頭行を機械的に切り出す（AI要約はしない）**: `11 §6`「利用者の明示変換」であり、AI が介在する余地を持たせない。整形は単純な文字列処理（先頭行・80文字切り詰め）に限定し、全文は `note` にそのまま保持して情報を失わない。
+- **タスク化は何度でも実行できる（重複防止をしない）**: 1つの原情報から複数のタスクに分解したい場合（例: 箇条書きメモ）を妨げないため、"既にタスク化済み" の抑制は設けなかった。完了条件（原情報が残る／来歴を辿れる）に反しない限り、利用者の裁量に委ねる。
+- **原情報 Entry の変更・削除は一切行わない**: `convertEntryToTask` は Entry を読み取り専用で参照するのみ。Issue #8 で確立した「派生・関連を持つ Entry は削除できない」制約（`Task.originEntryId` の FK RESTRICT、Issue #10 で追加済み）が、タスク化後の Entry 削除操作からも自動的に来歴を守る。
+
+#### 今後への影響
+
+- Issue #16（今日領域統合）・Issue #20/#21（AI整理・行動候補）は、`Task.originEntryId` を辿って「どの原情報から生まれたタスクか」を説明可能性（P4）の一部として利用できる。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
+- dev サーバで実挙動確認: Inbox の Journal エントリを「タスク化」→ Home の今日のタスク一覧に反映／DB 直接クエリで `Task.originEntryId` が元 Entry を正しく参照し、元 Entry が一切変更されず残っていることを確認／タスク化後も Inbox 一覧に元の Entry が変わらず表示されることを確認。加えて `tsx` 経由の一時検証で、長文（100文字）が80文字＋省略記号に切り詰められること、複数行本文では先頭行のみがタイトルになることを確認（検証後にスクリプトと一時データを削除）。コンソールエラーなし（HMR警告のみ）。

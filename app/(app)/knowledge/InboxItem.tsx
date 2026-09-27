@@ -1,7 +1,12 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { deleteInboxEntry, reviseInboxEntry, type InboxActionState } from "./actions";
+import {
+  deleteInboxEntry,
+  reviseInboxEntry,
+  taskifyInboxEntry,
+  type InboxActionState,
+} from "./actions";
 
 export interface InboxEntryView {
   id: string;
@@ -28,6 +33,8 @@ export function InboxItem({ entry }: { entry: InboxEntryView }) {
   );
   const [deletePending, startDeleteTransition] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [taskifyPending, startTaskifyTransition] = useTransition();
+  const [taskifyState, setTaskifyState] = useState<InboxActionState>({});
 
   function handleDelete() {
     if (!window.confirm("この記録を削除しますか？削除すると元に戻せません。")) {
@@ -41,6 +48,16 @@ export function InboxItem({ entry }: { entry: InboxEntryView }) {
       if (result.error) {
         setDeleteError(result.error);
       }
+    });
+  }
+
+  function handleTaskify() {
+    setTaskifyState({});
+    const formData = new FormData();
+    formData.set("entryId", entry.id);
+    startTaskifyTransition(async () => {
+      const result = await taskifyInboxEntry(initialState, formData);
+      setTaskifyState(result);
     });
   }
 
@@ -99,7 +116,25 @@ export function InboxItem({ entry }: { entry: InboxEntryView }) {
           {deleteError}
         </p>
       ) : null}
+      {taskifyState.error ? (
+        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+          {taskifyState.error}
+        </p>
+      ) : null}
+      {taskifyState.success ? (
+        <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+          タスク化しました（Home の今日のタスクに追加）。
+        </p>
+      ) : null}
       <div className="mt-2 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={handleTaskify}
+          disabled={taskifyPending}
+          className="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-60 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        >
+          {taskifyPending ? "タスク化中..." : "タスク化"}
+        </button>
         <button
           type="button"
           onClick={() => setEditing(true)}
