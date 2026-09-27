@@ -114,5 +114,12 @@ model Settings {
   /// 使用モデル。既定は 14 §3 の決定値。
   aiModel String @default("claude-sonnet-5")
 
+  /// Google Calendar 接続（Issue #13）。ICS 秘密URL方式（04 §7 最小権限＝読み取り専用）。
+  /// OAuth ではなくこの方式を採用したため、スコープ制御ではなく「ICSは読み取り専用の形式である」
+  /// こと自体が最小権限を担保する。値は平文保持（14 §2、Settings.aiApiKey と同じ判断）。
+  calendarIcsUrl        String?
+  calendarLastSyncAt    DateTime?
+  calendarLastSyncError String?
+
   updatedAt DateTime @updatedAt
 }

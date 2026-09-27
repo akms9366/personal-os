@@ -3,6 +3,7 @@ import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { getSpace } from "@/lib/navigation/spaces";
 import { getSettings } from "@/lib/settings/store";
 import { AiSettingsForm } from "./AiSettingsForm";
+import { CalendarConnectionForm } from "./CalendarConnectionForm";
 
 // Settings 空間（05 §8）。Issue #6 で骨格を実装。
 // MVP（14 PR-06）では4枠のうち「AI & Automation」のみ実機能。他は後続 Issue のスタブ。
@@ -42,7 +43,11 @@ export default async function SettingsPage() {
         </SettingsSection>
 
         <SettingsSection title="Connections">
-          <ComingSoon note="Google Calendar 等の外部接続はここに追加します（Issue #13）。" />
+          <CalendarConnectionForm
+            connected={settings.calendarConnected}
+            lastSyncAt={settings.calendarLastSyncAt}
+            lastSyncError={settings.calendarLastSyncError}
+          />
         </SettingsSection>
 
         <SettingsSection title="AI & Automation">
