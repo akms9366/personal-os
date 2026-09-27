@@ -19,5 +19,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|login).*)"],
+  // login 画面と、Next.js の内部アセット・public/ 配下の静的ファイル（拡張子付きパス）は保護対象から除く。
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|login|.*\\.\\w+$).*)"],
 };
