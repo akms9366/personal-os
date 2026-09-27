@@ -396,3 +396,50 @@ Quick Capture 入口。Personal OS の日中ループの中心（`11 §5`）。�
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 13/13 成功（既存テストに影響なし。`createEntry` 自体は薄い書込みラッパのため DB 統合テストは追加せず、ブラウザでの実書込み確認で担保）/ `npm run build` 成功。
 - dev サーバで実挙動確認: `/knowledge` など任意の画面で `c` キー押下→モーダルが開く／`Ctrl+Enter` で送信→保存成功メッセージ表示・入力欄クリア・モーダルは開いたまま／連続で2件目を記録→`Escape` で正常に閉じる／DB を直接クエリし、生成された Entry が `kind=note, origin=human, state=S1, source=quick-capture, sourceEntryId=null` であることを確認（検証用データはテスト後に削除）。コンソールエラーなし（HMR警告のみ）。
+
+---
+
+## 2026-09-27（続き3）
+
+### Issue #8
+
+#### 概要
+
+Inbox（受信箱）一覧。Quick Capture で溜めた原情報を見返し・編集（新版生成）・削除できるようにした。`05 §6 Knowledge` の主な入口「BrainDump」に対応する MVP の実体として、Knowledge 空間（Issue #4 ではスタブ）を初めて active 化した。
+
+- 対応 Issue: [personal-os-design#8](https://github.com/akms9366/personal-os-design/issues/8)
+- Pull Request: personal-os#9（作成予定）
+- feature ブランチ: `feature/issue-008-inbox`
+- 前提: Issue #7（PR #8）Merge 済み。
+
+#### 追加
+
+- `prisma/schema.prisma`: Entry に `revisesEntryId`（自己参照、`EntryRevision`）を追加。「この Entry は revisesEntryId の新版である」を表す、`sourceEntryId`（派生の来歴）とは別概念のフィールド。migration `20260927040426_entry_revision_and_restrict_delete`。
+- `lib/domain/guard.ts`: `assertRevisionTargetIsOriginal` — 「修正は新版生成」の対象を原情報（S1）のみに限定するガード。テスト3件追加（16/16 pass）。
+- `lib/db/entries.ts`: `listCurrentEntries()`（`state=S1` かつ `revisedBy` が空 = 現在版の原情報のみ）／`reviseEntry()`（新版生成、旧版は一切更新しない）／`deleteEntry()`（派生・改訂履歴がある場合は削除せず理由を返す）。
+- `app/(app)/knowledge/{page.tsx,InboxItem.tsx,actions.ts}`: 一覧・インライン編集・削除（`window.confirm` で確認）。
+
+#### 変更
+
+- `prisma/schema.prisma`: **`sourceEntryId` の外部キーを `ON DELETE SET NULL` → `ON DELETE RESTRICT` に変更**（後述、PR #4 レビュー IMPORTANT 指摘への対応）。
+- `lib/navigation/spaces.ts`: `knowledge` の `status` を `"stub"` → `"active"`。
+
+#### 設計判断
+
+- **`revisesEntryId` を `sourceEntryId` と別フィールドにした**: `sourceEntryId` は「派生（S2/S4/S5）が原情報を参照する」ための来歴であり、`validateEntryInvariants` が「原情報(S1)は sourceEntryId を持てない」と厳格に禁止している。同じ S1 同士の「新版」関係をこの来歴フィールドに乗せると、その不変条件と衝突する。物理的に別リレーションにすることで、Issue #3 の不変条件を一切変更せずに「新版生成」を追加できた。
+- **Inbox 一覧は `state="S1"` に限定**: 実装中に、Issue #2 の seed に含まれる `state="S2"`（AI解釈サンプル）が一覧に混在して表示される不具合を実機検証で発見し、修正した。原情報とAI派生を同じ見た目で混在させないことは `05 §3.1` / P3 の中核であり、これを見逃すと Inbox が「原情報の受信箱」ではなくなる。Development Log にも重大な自己レビュー事項として明記する。
+- **`sourceEntryId` の FK を `RESTRICT` に変更（PR #4 レビュー IMPORTANT #2 の解消）**: 従来の `ON DELETE SET NULL` は、親 Entry を削除すると派生の来歴が黙って失われる設計だった。Issue #8 で実際に削除機能を実装するにあたり、このタイミングで是正した。派生・改訂履歴を持つ Entry は削除できない仕様とし、アプリ層（`deleteEntry` の事前カウントチェック）と DB 層（FK RESTRICT）の二重で防御する。
+- **削除の確認は `window.confirm()`**: `14 §2`「高影響操作の承認ラダーは作らず、確認ダイアログのみ」に従い、専用モーダルは作らずブラウザ標準の確認ダイアログで最小限に済ませた。
+- **編集は新版生成、旧版は一切更新しない**: `06 §9`「原情報は不変」を厳密に守り、`reviseEntry` は既存レコードを一切 UPDATE せず、新しい Entry を `revisesEntryId` 付きで INSERT するだけ。一覧クエリが「現在版」を自動的に絞り込む。
+- **`isDerivedState` 二値化（PR #4 レビュー IMPORTANT #1）は本 Issue では対応しない**: S0/S8 導入（Issue #17 Reflection）が前提のため、引き続き #17 着手前の対応事項として持ち越す。
+
+#### 今後への影響
+
+- Journal（#9）は `kind=journal` の Entry を同じ `createEntry`/`listCurrentEntries` 基盤の上に構築できる。
+- Quick Capture → Task 化（#12）は、削除と同様に「派生・依存を持つ原情報をどう扱うか」の先例（RESTRICT・事前チェック方式）を踏襲できる。
+- Inbox の「編集履歴を辿る」UI（旧版を遡って見る）は本 Issue の範囲外（完了条件は「現在版の編集が反映されること」のみ）。データは `revisesEntryId` チェーンとして残っているため、将来 Knowledge の来歴表示機能で拡張可能。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（新規3件含む）/ `npm run build` 成功。
+- dev サーバで実挙動確認: 一覧が新しい順で表示（`state=S2` サンプルは表示されないことを修正後に確認）／編集→新版として保存→一覧に新版のみ表示され旧版は隠れることを確認／DB 直接クエリで旧版が一切変更されず新版が `revisesEntryId` で正しく参照することを確認／派生・改訂履歴を持つ Entry への直接削除試行が DB 制約（`P2003`）でブロックされることを確認／アプリ層の事前チェック（件数カウント）が同じ判定を返すことを確認／依存のない Entry の作成→削除が成功することを `tsx` 経由の一時検証スクリプトで確認（検証後に削除、リポジトリに残存なし）。コンソールエラーなし（HMR警告のみ）。
