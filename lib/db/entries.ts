@@ -83,17 +83,20 @@ export interface DeleteEntryResult {
 }
 
 /// Entry を削除する（Issue #8、確認ダイアログを挟んだ上で呼ばれる前提）。
-/// 派生（sourceEntryId で参照）または改訂履歴（revisesEntryId で参照）を持つ場合は削除せず理由を返す
-/// （Provenance・改訂履歴を来歴ごと消してしまうことを防ぐ。PR #4 レビュー IMPORTANT 指摘への対応）。
+/// 派生（sourceEntryId）・改訂履歴（revisesEntryId）・起点参照（Task.originEntryId、Issue #10）の
+/// いずれかを持つ場合は削除せず理由を返す（Provenance を来歴ごと消してしまうことを防ぐ。
+/// PR #4 レビュー IMPORTANT 指摘への対応。Task の追加は Issue #10 でこのチェックへ反映した）。
 export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
-  const [derivedCount, revisionCount] = await Promise.all([
+  const [derivedCount, revisionCount, taskCount] = await Promise.all([
     prisma.entry.count({ where: { sourceEntryId: entryId } }),
     prisma.entry.count({ where: { revisesEntryId: entryId } }),
+    prisma.task.count({ where: { originEntryId: entryId } }),
   ]);
 
-  if (derivedCount > 0 || revisionCount > 0) {
+  if (derivedCount > 0 || revisionCount > 0 || taskCount > 0) {
     return {
-      blocked: "この記録には派生情報または改訂履歴があるため削除できません。",
+      blocked:
+        "この記録には派生情報・改訂履歴・関連タスクがあるため削除できません。",
     };
   }
 

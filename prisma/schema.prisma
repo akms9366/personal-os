@@ -67,6 +67,33 @@ model Entry {
   revisesEntryId String?
   revisesEntry   Entry?  @relation("EntryRevision", fields: [revisesEntryId], references: [id], onDelete: Restrict)
   revisedBy      Entry[] @relation("EntryRevision")
+
+  originatedTasks Task[]
+}
+
+/// Task — 利用者が選んだ行動（06 §3.3 系統B。State Taxonomy S4→S5→S6→S7 相当を軽量に扱う）。
+/// Entry（原情報 S1）と異なり不変ではない。status/priority は通常の CRUD で更新してよい
+/// （`11 §2` 保留・未完了は失敗として扱わない。優先順位は利用者が設定し自動確定しない）。
+model Task {
+  id String @id @default(cuid())
+
+  title String
+  note  String?
+
+  /// 許容値: "todo" | "doing" | "hold" | "done"。値域は lib/domain/task.ts。
+  status String @default("todo")
+
+  dueAt DateTime?
+
+  /// 許容値: "low" | "medium" | "high"。未設定（null）を許容する（自動確定しない）。
+  priority String?
+
+  createdAt DateTime @default(now())
+
+  /// Quick Capture 由来のタスクが元原情報を参照する（来歴、Issue #12「Capture→Task化」で使用）。
+  /// onDelete: Restrict — 元原情報の削除で来歴を失わないため（Issue #8 の sourceEntryId/revisesEntryId と同じ方針）。
+  originEntryId String?
+  originEntry   Entry?  @relation(fields: [originEntryId], references: [id], onDelete: Restrict)
 }
 
 /// Settings — 利用者の制御面（05 §8）。Entry（原情報）とは別概念で、
