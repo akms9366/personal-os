@@ -443,3 +443,42 @@ Inbox（受信箱）一覧。Quick Capture で溜めた原情報を見返し・�
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（新規3件含む）/ `npm run build` 成功。
 - dev サーバで実挙動確認: 一覧が新しい順で表示（`state=S2` サンプルは表示されないことを修正後に確認）／編集→新版として保存→一覧に新版のみ表示され旧版は隠れることを確認／DB 直接クエリで旧版が一切変更されず新版が `revisesEntryId` で正しく参照することを確認／派生・改訂履歴を持つ Entry への直接削除試行が DB 制約（`P2003`）でブロックされることを確認／アプリ層の事前チェック（件数カウント）が同じ判定を返すことを確認／依存のない Entry の作成→削除が成功することを `tsx` 経由の一時検証スクリプトで確認（検証後に削除、リポジトリに残存なし）。コンソールエラーなし（HMR警告のみ）。
+
+---
+
+## 2026-09-27（続き4）
+
+### Issue #9
+
+#### 概要
+
+Journal 種別（時点保持）。内省・振り返りの原情報（S1）を明示的に残せるようにした。夜の振り返り領域（#17）が将来この土台の上に構築される。
+
+- 対応 Issue: [personal-os-design#9](https://github.com/akms9366/personal-os-design/issues/9)
+- Pull Request: personal-os#10（作成予定）
+- feature ブランチ: `feature/issue-009-journal`
+- 前提: Issue #7（PR #8）Merge 済み。
+
+#### 追加
+
+- `app/(app)/knowledge/actions.ts`: `saveJournalEntry` Server Action。常に `Entry(kind=journal, origin=human, source="journal", state=S1)` を生成。
+- `app/(app)/knowledge/JournalForm.tsx`（Client）: Knowledge ページ上部の常設フォーム。保存成功後は入力欄をリセット。
+
+#### 変更
+
+- `app/(app)/knowledge/page.tsx`: `<JournalForm />` を Inbox 一覧の上に追加。案内文を「Quick Capture・Journal で残した記録の一覧」に更新。
+
+#### 設計判断
+
+- **専用の一覧・route は作らない**: Issue #8 で実装した Inbox 一覧（`listCurrentEntries()`）は kind を問わず全ての現在版の原情報を表示する汎用実装であり、`kind=journal` の Entry も kind バッジ付きでそのまま一覧に現れる。`05 §6` の Knowledge の責務「作成経路を問わず原情報へ戻れるようにする」に合致するため、Journal 専用の別画面・別フィルタを新設せず既存基盤を再利用した（過剰な抽象化・route の増殖を回避）。
+- **Quick Capture とは別の入口として実装**: Issue #7 で「Quick Capture は分類UIを一切持たず常に kind=note」と決めたため、journal 作成はここで独立した小さなフォームとして追加した。両者は原情報の生成経路として並存する。
+- **時点保持は Entry モデルの既定機能でそのまま満たす**: `createdAt` は `@default(now())` かつ不変（更新されない）ため、Journal 特有の追加実装は不要だった。
+
+#### 今後への影響
+
+- Issue #17（振り返り領域）は、本 Issue の `createEntry({ kind: "journal", ... })` 経路を土台に、夜の振り返り専用の入力導線（Home 空間からの導線・S8 相当の意味づけ）を追加する形で拡張する。現時点の Journal は state=S1（原情報）のみで、S8（振り返り状態）の区別は #17 で導入する。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
+- dev サーバで実挙動確認: Journal フォームから記録→「記録しました。」表示・入力欄クリア／Inbox 一覧に `journal` バッジ付きで即座に反映／DB 直接クエリで `kind=journal, origin=human, state=S1, source=journal` と作成時点が正しく保持されていることを確認。コンソールエラーなし（HMR警告のみ）。
