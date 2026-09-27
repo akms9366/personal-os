@@ -45,29 +45,35 @@ export default async function HomePage() {
           }}
         />
 
-        <section className="flex flex-col gap-3">
+        <section className="flex flex-col gap-5">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-            今日の予定
+            今日
           </h2>
-          <TodayEvents
-            connected={todayEvents.connected}
-            events={todayEvents.events}
-            error={todayEvents.error}
-          />
-        </section>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-            今日のタスク
-          </h2>
-          <TaskCreateForm />
-          <TaskList
-            tasks={tasks.map((task) => ({
-              id: task.id,
-              title: task.title,
-              status: task.status,
-            }))}
-          />
+          <div className="flex flex-col gap-3">
+            <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              予定
+            </h3>
+            <TodayEvents
+              connected={todayEvents.connected}
+              events={todayEvents.events}
+              error={todayEvents.error}
+            />
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              タスク
+            </h3>
+            <TaskCreateForm />
+            <TaskList
+              tasks={tasks.map((task) => ({
+                id: task.id,
+                title: task.title,
+                status: task.status,
+              }))}
+            />
+          </div>
         </section>
 
         <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
