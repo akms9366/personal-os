@@ -531,3 +531,46 @@ Task モデルと CRUD。行動（タスク）を扱う土台。UI は持たず�
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
 - UI を持たない Issue のため、`tsx` 経由の一時検証スクリプトで CRUD 全経路を実DBに対して検証（検証後にスクリプトと生成データを削除、リポジトリ・DBに残存なし）: 作成・取得・一覧・更新（成功）／不正な status・priority が `TaskValidationError` で拒否されること／`originEntryId` が正しく Entry を参照すること／参照元 Entry の削除が `deleteEntry()` 修正後は例外を投げず `blocked` を返すこと／DB 制約（FK RESTRICT）自体も独立して機能していることを確認。
+
+---
+
+## 2026-09-27（続き6）
+
+### Issue #11
+
+#### 概要
+
+今日のタスク view と状態遷移。Issue #10 で作った Task CRUD の上に、実際に使える UI を Home 空間へ実装した。
+
+- 対応 Issue: [personal-os-design#11](https://github.com/akms9366/personal-os-design/issues/11)
+- Pull Request: personal-os#12（作成予定）
+- feature ブランチ: `feature/issue-011-today-tasks`
+- 前提: Issue #10（PR #11）Merge 済み。
+
+#### 追加
+
+- `app/(app)/home/actions.ts`: `createTaskAction`（タイトルのみでタスク作成、priority は自動設定しない）／`updateTaskStatusAction`（`isTaskStatus` で値域検証してから更新）。
+- `app/(app)/home/TaskCreateForm.tsx`（Client）: タスク追加フォーム。
+- `app/(app)/home/TaskList.tsx`（Client）: 一覧＋状態遷移 `<select>`（todo/doing/hold/done を "未着手/進行中/保留/完了" と中立的な日本語ラベルで表示）。
+
+#### 変更
+
+- `app/(app)/home/page.tsx`: Issue #4 のプレースホルダを置き換え、「今日のタスク」セクション（作成フォーム＋一覧）を実装。現在地・振り返り（#15/#17）は引き続き「今後この領域に構成します」のスタブ文言を残した。
+
+#### 設計判断
+
+- **Task UI は Home 空間に置いた**: `05 §4` Home の「今日」領域の定義（「今日の行動を選び、実行・調整する」）、および `Module_Layer_Space_Mapping.md §4`（Tasks モジュール → Home「今日」）に基づく。Knowledge や新規 route は作らず、Issue #4 で用意した Home の「今後この領域に構成します」プレースホルダを、まさにその「後続 Issue」として実際に埋めた。
+- **タスク作成の最小フォーム（タイトルのみ）を含めた**: Issue #11 の「やること」には作成 UI が明記されていないが、Issue #10 は UI を持たないため、作成手段が皆無だと「一覧・状態遷移」自体を検証・利用できない。#12（Quick Capture→Task化）は既存 Entry からの変換という別経路であり、手動でのタスク起票を代替しない。両者は並存する入口と判断し、最小のタイトル入力フォームを追加した。
+- **状態遷移は `<select>` 一つに単純化**: 4状態間の遷移に順序制約を設けない（`11 §2`）。ボタン群やドラッグ&ドロップ等の凝った UI は今回作らず、`<select>` で「状態遷移が動く」という完了条件を過不足なく満たした。
+- **状態ラベルは中立語を採用**: todo→「未着手」、doing→「進行中」、hold→「保留」、done→「完了」。「未完了」「失敗」等の否定的表現を避け、`11 §2` の完了条件（未完了に否定的表現がない）を満たす。
+- **一覧は現時点で全タスクを表示（絞り込みなし）**: `05 §4` の Home「今日」領域は本来「無制限のToDo一覧」を含めないことを求めているが、現時点では「今日に割り当てる」という概念自体がモデルに存在しない（Calendar 統合前）。Epic5 の Issue #16「今日領域（統合）」が Task と Calendar を実際に統合する際に、この一覧を焦点を絞った表示へ発展させる想定。ここで無理に「今日」概念を先取り実装せず、Loop Engineering の「小さく実装して使ってから設計へフィードバックする」方針に沿って一旦単純な全件一覧とした。次セッションは #16 着手時にこの点を必ず思い出すこと。
+
+#### 今後への影響
+
+- Issue #16（今日領域統合）は、本 Issue の `TaskList`/`listTasks()` を土台に、Calendar の予定と合わせた「今日」に絞った表示へ発展させる（`05 §4` の「無制限のToDo一覧を含めない」を本格的に満たすのはここ）。
+- Issue #12（Quick Capture→Task化）は、Inbox の Entry に対して `createTask({ ..., originEntryId })` を呼ぶ操作を追加するだけで、本 Issue の一覧にそのまま現れる。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
+- dev サーバで実挙動確認: タスク作成→一覧に反映／状態を `todo→doing→hold→todo→done` と遷移させ、逆遷移（hold→todo）も含めて順序が強制されないことを確認／各遷移をDB直接クエリで確認／中立的な状態ラベルが表示されることを確認（検証用データは終了後に削除）。コンソールエラーなし（HMR警告のみ）。
