@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createTask, updateTask } from "@/lib/db/tasks";
+import { createEntry } from "@/lib/db/entries";
 import { isTaskStatus } from "@/lib/domain/task";
 
 export interface TaskActionState {
@@ -40,6 +41,29 @@ export async function updateTaskStatusAction(
   }
 
   await updateTask(taskId, { status });
+  revalidatePath("/home");
+  return { success: true };
+}
+
+/// 夜の振り返り保存 Server Action（Issue #17）。評価・スコアは求めず自由記述のみ。
+/// Entry(kind=journal, state=S8) として保存する（保存は Journal 基盤を利用、Issue #9）。
+export async function saveReflectionAction(
+  _prevState: TaskActionState,
+  formData: FormData,
+): Promise<TaskActionState> {
+  const body = formData.get("body");
+  if (typeof body !== "string" || body.trim().length === 0) {
+    return { error: "内容を入力してください。" };
+  }
+
+  await createEntry({
+    kind: "journal",
+    body: body.trim(),
+    source: "reflection",
+    origin: "human",
+    state: "S8",
+  });
+
   revalidatePath("/home");
   return { success: true };
 }

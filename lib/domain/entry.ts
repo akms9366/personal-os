@@ -8,17 +8,24 @@ export const ORIGINS = ["human", "ai", "external"] as const;
 export type Origin = (typeof ORIGINS)[number];
 
 /// 情報状態（State Taxonomy）の MVP 軽量サブセット。
-/// S1=原情報 / S2=解釈 / S4=提案 / S5=決定。語彙は先に固定し、当面 S1 のみ使用する。
-export const STATES = ["S1", "S2", "S4", "S5"] as const;
+/// S1=原情報 / S2=解釈 / S4=提案 / S5=決定 / S8=振り返り（Issue #17 で追加）。
+export const STATES = ["S1", "S2", "S4", "S5", "S8"] as const;
 export type EntryState = (typeof STATES)[number];
+
+/// 「利用者本人の一次記録」として扱う状態（06 §2.2 / State_Taxonomy §2, §3）。
+/// S1（原情報）・S8（振り返り）はいずれも本人の一次記録であり、AI/ルールの派生
+/// （S2/S4/S5）と異なり sourceEntryId を持たない／要求しない。将来 S0（意図・制約）を
+/// 追加する場合もここに加える。単一 state==="S1" 比較にしないのはこのため
+/// （PR #4 レビュー IMPORTANT 指摘、Issue #17 着手にあたり解消）。
+const ORIGINAL_STATES: readonly EntryState[] = ["S1", "S8"];
 
 /// 種別（#2 で定義、#14 で "event" 追加）。許容値の SSOT をドメイン層に集約する。
 export const KINDS = ["note", "journal", "bookmark", "event"] as const;
 export type EntryKind = (typeof KINDS)[number];
 
-/// 原情報の状態は S1 のみ。それ以外（S2/S4/S5）は派生・決定。
+/// 本人の一次記録（S1・S8）かどうか。それ以外（S2/S4/S5）は派生・決定。
 export function isOriginalState(state: EntryState): boolean {
-  return state === "S1";
+  return ORIGINAL_STATES.includes(state);
 }
 
 /// 派生（来歴参照が必須）か。原情報（S1）以外はすべて親 Entry を参照する。

@@ -128,3 +128,44 @@ describe("assertRevisionTargetIsOriginal — 新版生成の対象制限（Issue
     );
   });
 });
+
+describe("S8（振り返り）— S1 と同じ「本人の一次記録」として扱われること（Issue #17）", () => {
+  const reflection: EntryShape = {
+    kind: "journal",
+    origin: "human",
+    state: "S8",
+    sourceEntryId: null,
+  };
+
+  it("振り返り(S8)は sourceEntryId が null なら通過", () => {
+    expect(() => validateEntryInvariants(reflection)).not.toThrow();
+  });
+
+  it("振り返り(S8)は sourceEntryId を持てない。あれば throw", () => {
+    expect(() =>
+      validateEntryInvariants({ ...reflection, sourceEntryId: "x" }),
+    ).toThrow(EntryInvariantError);
+  });
+
+  it("AI origin は振り返り(S8)を生成できない", () => {
+    expect(() =>
+      validateEntryInvariants({ ...reflection, origin: "ai" }),
+    ).toThrow(EntryInvariantError);
+  });
+
+  it("AI origin は振り返り(S8)を更新できない（assertAiCannotWriteOriginal）", () => {
+    expect(() =>
+      assertAiCannotWriteOriginal({ actorOrigin: "ai", target: { state: "S8" } }),
+    ).toThrow(EntryInvariantError);
+  });
+
+  it("振り返り(S8)の in-place 更新は禁止（assertOriginalImmutable）", () => {
+    expect(() => assertOriginalImmutable({ state: "S8" })).toThrow(
+      EntryInvariantError,
+    );
+  });
+
+  it("振り返り(S8)は revise 対象にできる（assertRevisionTargetIsOriginal）", () => {
+    expect(() => assertRevisionTargetIsOriginal({ state: "S8" })).not.toThrow();
+  });
+});
