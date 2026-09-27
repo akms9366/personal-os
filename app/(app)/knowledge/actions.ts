@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createEntry, deleteEntry, reviseEntry } from "@/lib/db/entries";
+import { convertEntryToTask } from "@/lib/db/tasks";
 
 export interface InboxActionState {
   success?: boolean;
@@ -66,5 +67,21 @@ export async function deleteInboxEntry(
   }
 
   revalidatePath("/knowledge");
+  return { success: true };
+}
+
+/// Inbox の「タスク化」Server Action（Issue #12）。利用者の明示操作でのみ実行される。
+/// 原情報 Entry は一切変更しない。Task 作成後は Home の一覧に現れる。
+export async function taskifyInboxEntry(
+  _prevState: InboxActionState,
+  formData: FormData,
+): Promise<InboxActionState> {
+  const entryId = formData.get("entryId");
+  if (typeof entryId !== "string" || entryId.length === 0) {
+    return { error: "対象が指定されていません。" };
+  }
+
+  await convertEntryToTask(entryId);
+  revalidatePath("/home");
   return { success: true };
 }

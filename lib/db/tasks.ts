@@ -82,3 +82,31 @@ export async function updateTask(id: string, params: UpdateTaskParams) {
 export async function deleteTask(id: string) {
   await prisma.task.delete({ where: { id } });
 }
+
+const TITLE_MAX_LENGTH = 80;
+
+/// Entry の本文からタスクの短いタイトルを作る（先頭行、長ければ省略）。
+function deriveTitleFromBody(body: string): string {
+  const firstLine = body.split("\n")[0].trim();
+  const source = firstLine.length > 0 ? firstLine : body.trim();
+  if (source.length <= TITLE_MAX_LENGTH) {
+    return source;
+  }
+  return `${source.slice(0, TITLE_MAX_LENGTH - 1)}…`;
+}
+
+/// Quick Capture 由来の Entry からタスクを起票する（Issue #12「Capture→Task化」）。
+/// 利用者の明示操作でのみ呼ばれる（AI が代行しない、`11 §6`）。
+/// 原情報 Entry は一切変更・削除しない。Task.originEntryId が来歴を保持する。
+export async function convertEntryToTask(entryId: string) {
+  const entry = await prisma.entry.findUnique({ where: { id: entryId } });
+  if (!entry) {
+    throw new Error(`entry not found: ${entryId}`);
+  }
+
+  return createTask({
+    title: deriveTitleFromBody(entry.body),
+    note: entry.body,
+    originEntryId: entry.id,
+  });
+}
