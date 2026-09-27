@@ -1,11 +1,33 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { deleteEntry, reviseEntry } from "@/lib/db/entries";
+import { createEntry, deleteEntry, reviseEntry } from "@/lib/db/entries";
 
 export interface InboxActionState {
   success?: boolean;
   error?: string;
+}
+
+/// Journal 作成 Server Action（Issue #9）。常に Entry(kind=journal, origin=human) を生成する。
+/// 時点（createdAt）は Entry モデルの既定（不変・作成時刻）でそのまま保持される。
+export async function saveJournalEntry(
+  _prevState: InboxActionState,
+  formData: FormData,
+): Promise<InboxActionState> {
+  const body = formData.get("body");
+  if (typeof body !== "string" || body.trim().length === 0) {
+    return { error: "内容を入力してください。" };
+  }
+
+  await createEntry({
+    kind: "journal",
+    body: body.trim(),
+    source: "journal",
+    origin: "human",
+  });
+
+  revalidatePath("/knowledge");
+  return { success: true };
 }
 
 /// Inbox の「編集」= 新版として保存する Server Action（原情報は不変、Issue #8）。

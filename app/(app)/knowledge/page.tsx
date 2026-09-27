@@ -2,6 +2,7 @@ import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { getSpace } from "@/lib/navigation/spaces";
 import { listCurrentEntries } from "@/lib/db/entries";
 import { InboxItem } from "./InboxItem";
+import { JournalForm } from "./JournalForm";
 
 // Knowledge 空間（05 §6）。Issue #8 で「Inbox（受信箱）一覧」を実装する。
 // 05 §6 の主な入口 BrainDump（断片的な入力をすばやく受け入れる）に対応する MVP の実体。
@@ -13,8 +14,10 @@ export default async function KnowledgePage() {
   return (
     <SpaceScaffold space={space}>
       <div className="flex flex-col gap-4">
+        <JournalForm />
+
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Quick Capture で残した記録の一覧（新しい順）。分類は求めません。
+          Quick Capture・Journal で残した記録の一覧（新しい順）。分類は求めません。
         </p>
 
         {entries.length === 0 ? (
