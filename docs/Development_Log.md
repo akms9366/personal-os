@@ -482,3 +482,52 @@ Journal 種別（時点保持）。内省・振り返りの原情報（S1）を�
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
 - dev サーバで実挙動確認: Journal フォームから記録→「記録しました。」表示・入力欄クリア／Inbox 一覧に `journal` バッジ付きで即座に反映／DB 直接クエリで `kind=journal, origin=human, state=S1, source=journal` と作成時点が正しく保持されていることを確認。コンソールエラーなし（HMR警告のみ）。
+
+---
+
+## 2026-09-27（続き5）
+
+### Issue #10
+
+#### 概要
+
+Task モデルと CRUD。行動（タスク）を扱う土台。UI は持たず（今日のタスク view は #11）、モデルと CRUD 層のみを実装する。Epic 3 の最初の Issue。
+
+- 対応 Issue: [personal-os-design#10](https://github.com/akms9366/personal-os-design/issues/10)
+- Pull Request: personal-os#11（作成予定）
+- feature ブランチ: `feature/issue-010-task-model`
+- 前提: Issue #3（PR #4）Merge 済み。
+
+#### 追加
+
+- `lib/domain/task.ts`: `TASK_STATUSES`（todo/doing/hold/done）・`TASK_PRIORITIES`（low/medium/high、未設定=nullを許容）の値域 SSOT と型ガード。
+- `prisma/schema.prisma`: `Task` モデル（`title, note, status, dueAt, priority, createdAt, originEntryId?`）。`originEntryId` は Entry への自己参照ではない通常の FK（`onDelete: Restrict`）。Entry 側に `originatedTasks Task[]` の逆参照を追加。
+- migration `20260927042734_add_task`。
+- `lib/db/tasks.ts`: `createTask`/`getTask`/`listTasks`/`updateTask`/`deleteTask`。Entry の `lib/db/entries.ts` と同じ「Prisma を直接叩かずこの層を経由する」規約に従う。
+
+#### 変更
+
+- **`lib/db/entries.ts` の `deleteEntry()` を修正**: Task 追加に伴い、`Task.originEntryId` で参照されている Entry も削除ブロック対象に加えた（後述、実装中に発見）。
+
+#### 設計判断
+
+- **Task は Entry と異なり不変にしない**: `06 §3.3` は Task を「状態・優先度・保留を持つ」利用者の行動記録と位置づけ、原情報（S1）の不変性とは別categoryである。`updateTask` は通常の in-place 更新を許可する（Entry の `assertOriginalImmutable` のような禁止ガードは設けない）。
+- **status/priority は SQLite enum 非対応のため String + ドメイン層検証**（Issue #2/#3 の `kind`/`origin`/`state` と同じ判断を継承）。
+- **priority は既定値を持たせず null を許容**: `11 §2`「優先順位を自動確定しない」ため、未設定を正規の状態として扱う。
+- **`originEntryId` の FK も `onDelete: Restrict`**: Issue #8 で確立した「来歴を来歴ごと消さない」方針を Task にも一貫して適用。Quick Capture 由来のタスク（#12 で実装）が、元原情報の削除によって来歴を失うことを防ぐ。
+- **本 Issue では UI を作らない**: 完了条件が「migration成功」「APIで作成・取得・更新・削除ができる」のみであり、実際の一覧・状態遷移 UI は Issue #11 の責務。UI を先取りしないことで Issue の境界を明確に保った。
+
+#### 実装中に発見した問題と対応
+
+- Task 追加により Entry に新しい被参照経路（`originEntryId`）が生まれたが、Issue #8 で実装した `deleteEntry()` の事前チェックはこれを考慮しておらず、Task が紐づく Entry を削除しようとすると DB 制約（`P2003`）による**未捕捉の例外**が発生することを検証スクリプトで発見した。`deleteEntry()` に `Task.originEntryId` のカウントチェックを追加し、他の来歴と同様に穏当な `blocked` メッセージを返すよう修正した。DB 制約（RESTRICT）自体は正しく機能しており、データの整合性は損なわれていなかった（アプリ層のエラーハンドリングの抜け漏れのみ）。
+- **教訓**: Entry を参照する新しいモデル・フィールドを追加するたびに、`deleteEntry()` の事前チェック一覧を見直す必要がある。次に Entry への参照を追加する Issue（#12 Capture→Task化 で `Task.originEntryId` は既存、#20/#21 の AI 派生も既存の `sourceEntryId` を使うため影響なし想定）でも同様の確認を行うこと。
+
+#### 今後への影響
+
+- Issue #11（今日のタスク view と状態遷移）は `lib/db/tasks.ts` の CRUD 関数の上に UI を構築する。
+- Issue #12（Quick Capture → Task 化）は `createTask({ ..., originEntryId: entry.id })` を呼ぶだけで来歴付きタスク化が成立する（追加のスキーマ変更は不要）。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
+- UI を持たない Issue のため、`tsx` 経由の一時検証スクリプトで CRUD 全経路を実DBに対して検証（検証後にスクリプトと生成データを削除、リポジトリ・DBに残存なし）: 作成・取得・一覧・更新（成功）／不正な status・priority が `TaskValidationError` で拒否されること／`originEntryId` が正しく Entry を参照すること／参照元 Entry の削除が `deleteEntry()` 修正後は例外を投げず `blocked` を返すこと／DB 制約（FK RESTRICT）自体も独立して機能していることを確認。
