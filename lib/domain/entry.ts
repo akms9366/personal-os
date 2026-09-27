@@ -12,8 +12,8 @@ export type Origin = (typeof ORIGINS)[number];
 export const STATES = ["S1", "S2", "S4", "S5"] as const;
 export type EntryState = (typeof STATES)[number];
 
-/// 種別（#2 で定義）。許容値の SSOT をドメイン層に集約する。
-export const KINDS = ["note", "journal", "bookmark"] as const;
+/// 種別（#2 で定義、#14 で "event" 追加）。許容値の SSOT をドメイン層に集約する。
+export const KINDS = ["note", "journal", "bookmark", "event"] as const;
 export type EntryKind = (typeof KINDS)[number];
 
 /// 原情報の状態は S1 のみ。それ以外（S2/S4/S5）は派生・決定。

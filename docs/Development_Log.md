@@ -656,3 +656,55 @@ Google Calendar 接続（read-only）。Epic4 Calendar の先頭。設計SSOTが
 
 - `npm run lint` 成功（設定調整後）/ `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
 - dev サーバで実挙動確認: 無効なURL（`https://example.com/not-a-calendar`）で接続を試み、「接続に失敗しました（HTTP 404）」が表示され状態が「未接続」のまま変わらないことを確認／実在する公開ICSフィード（Google 提供の米国祝日カレンダー公開ICS）で接続→「状態: 接続済み」・最終同期時刻が表示されることを確認／DB直接クエリで `calendarIcsUrl` が保存され `calendarLastSyncError` が null であることを確認／切断→フォームが未接続状態に戻り、DB上も全フィールドが `null` にクリアされることを確認。コンソールエラーなし。
+
+---
+
+## 2026-09-27（続き9）
+
+### Issue #14
+
+#### 概要
+
+今日の予定の表示。Epic4 Calendar の最後、Epic4 全体の完了。Issue #13 で確立した ICS 接続を実際に使い、今日分のイベントを取得・表示し、`Entry(origin=external, kind=event)` として保持する。
+
+- 対応 Issue: [personal-os-design#14](https://github.com/akms9366/personal-os-design/issues/14)
+- Pull Request: personal-os#15（作成予定）
+- feature ブランチ: `feature/issue-014-today-events`
+- 前提: Issue #13（PR #14）Merge 済み。
+
+#### 追加
+
+- 依存追加: `node-ical`（ICS/RFC5545 パーサ）。繰り返しイベント（RRULE）・RECURRENCE-ID による上書き・EXDATE・終日判定など、ICS の実務的な複雑さを自前実装せず委譲するため採用（詳細は設計判断参照）。
+- `lib/domain/entry.ts`: `KINDS` に `"event"` を追加。
+- `lib/calendar/ics.ts`: `parseTodayEvents()` — `node-ical` の `expandRecurringEvent()` を使い、繰り返し・終日イベントを含めて「今日」に該当する発生（occurrence）を抽出する。
+- `lib/calendar/sync.ts`: `getTodayEvents()` — 接続確認→取得→解析→表示用データ整形→Entry永続化→同期状態記録、を一括して行うオーケストレーション層。
+- `lib/settings/store.ts`: `recordCalendarSyncSuccess()`／`recordCalendarSyncError()`。
+- `app/(app)/home/TodayEvents.tsx`: 今日の予定の表示（未接続／同期失敗／0件／一覧の4状態）。
+- `app/(app)/home/page.tsx`: 「今日の予定」セクションを追加（今日のタスクの上）。
+
+#### 変更
+
+- **`lib/db/entries.ts` の `listCurrentEntries()` を修正**: `kind: { not: "event" }` を追加。実機検証で、Google Calendar 由来の Entry（kind=event, origin=external）が Inbox 一覧に混在して表示され、「編集（新版生成）」「削除」「タスク化」といった本来 BrainDump 向けの操作が外部データにも表示されてしまう不具合を発見し、その場で修正した（後述）。
+
+#### 設計判断
+
+- **ICS パースに `node-ical` を採用（自前実装しない）**: RFC5545 の繰り返し規則（RRULE）・例外日（EXDATE）・個別上書き（RECURRENCE-ID）・終日イベント判定・タイムゾーン変換は、正しく実装しようとすると自前実装は非常に複雑で誤りやすい（`14 §2` は「過剰実装を避ける」としているが、これは逆に「枯れたライブラリに委譲することでシンプルさを保つ」ケースと判断した）。`expandRecurringEvent()` 1関数呼び出しで、繰り返し・単発・終日を統一的に扱える。
+- **`Entry(origin=external, kind=event)` の永続化は「発生（occurrence）単位」で冪等**: 同じイベント（UID）・同じ発生時刻の組を安定キー（`source = "google-calendar:<uid>:<開始時刻ISO>"`）とし、既存レコードがあれば再作成しない。再取得のたびに重複が増えることを防ぎつつ、`06 §2.2`「外部側更新は新版として追記」の考え方に沿う（同一発生の重複だけを防ぎ、変更検知・差分更新は本 Issue の範囲外とした）。
+- **同期成功／失敗と関わらず、既存の書込み規約（`createEntry`）を経由する**: Prisma を直接叩かず、`lib/db/entries.ts` の `createEntry` を呼ぶことで、値域検証（`kind`/`origin`/`state`）を他の経路と同じように担保する。
+- **「成功したように見せない」を Home と Settings の両方で担保**: 取得・解析いずれかが失敗した場合、`events` は常に空配列で返し、`error` を必ず設定する。`TodayEvents` コンポーネントは「0件」と「エラー」を明確に区別して表示する（0件を装ってエラーを隠さない）。Settings 側にも直近の同期エラーを表示し、Home を見ない利用者にも同期不調が伝わるようにした。
+- **`kind=event` を Inbox から除外（実装中に発見・修正）**: `listCurrentEntries()` は元々 `state="S1"` のみで絞っていたが、`origin=external` の Entry も state=S1 であるため、そのままでは Google Calendar 由来のイベントが Quick Capture / Journal と同じ Inbox 一覧に紛れ込み、「編集」「削除」「タスク化」が外部データに対しても表示されてしまうことをブラウザでの実機検証で発見した。Inbox（BrainDump）は利用者が明示的に残した断片の受信箱であり、外部同期データとは性質が異なるため、`kind: { not: "event" }` を追加して除外した。Issue #8 で発見した state=S2 混在バグと同種の「一覧を実装するたびに、意図しない種類の Entry が紛れ込んでいないか確認する」教訓が再び当てはまった。
+
+#### 実装中に発見した問題（npm audit）
+
+- `node-ical` 導入時の `npm install` で `npm audit` が **critical** の Next.js 脆弱性（Windows ホスト環境での未認証RCE、GHSA-p293-qw3h-jr36。現行 next@16.2.12 が該当、next@16.3.6 で修正）を報告した。本 Issue（Calendar）とは無関係の既存依存の問題のため、範囲外の変更としてこの場では着手せず、別タスクとして切り出した（フォローアップが必要）。
+
+#### 今後への影響
+
+- Issue #16（今日領域統合）は、本 Issue の `getTodayEvents()`／`TodayEvents` を Task の「今日」表示と統合する際の材料になる。
+- Issue #20/#21（AI整理・行動候補）が「今日の予定」を文脈として読む場合、`Entry(kind=event)` を辿ることで来歴（P3）を保った参照ができる。
+- 同一イベントの内容変更（時刻変更・タイトル変更等）を検知して新版として記録する仕組みは本 Issue の範囲外（将来必要になれば `revisesEntryId` の枠組みを再利用できる）。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 16/16 成功（既存テストに影響なし）/ `npm run build` 成功。
+- 実際の日付（2026-09-27）に依存する検証のため、単発・終日・毎日繰り返し・前日（除外されるべき）の4種類のVEVENTを含む一時テストICSファイル（`public/test-calendar.ics`、検証後に削除）を用意し、dev サーバで実挙動確認: Settings で接続→Home に3件（終日・単発・繰り返し）が正しい時刻順で表示され、前日のイベントが含まれないことを確認／DB直接クエリで3件が `kind=event, origin=external, state=S1` として永続化されることを確認／ページ再読込後も重複作成されない（冪等）ことを確認／ファイルを一時的にリネームして同期を失敗させ、Home に「同期に失敗しました」、Settings に「直近の同期エラー」が表示され、`calendarLastSyncAt`（直近成功時刻）は上書きされないことを確認／ファイルを復元し切断、DBのテストデータ（event Entry 3件）とテストICSファイルを削除。コンソールエラーなし。
