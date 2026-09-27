@@ -43,7 +43,7 @@ export const SPACES: readonly Space[] = [
     label: "Knowledge",
     title: "Knowledge",
     purpose: "記録・探索・再発見",
-    status: "stub",
+    status: "active",
   },
   {
     slug: "finance",

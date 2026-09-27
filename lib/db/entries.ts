@@ -1,5 +1,8 @@
 import { prisma } from "./client";
-import { validateEntryInvariants } from "@/lib/domain/guard";
+import {
+  assertRevisionTargetIsOriginal,
+  validateEntryInvariants,
+} from "@/lib/domain/guard";
 import type { EntryKind, Origin } from "@/lib/domain/entry";
 
 // Entry（原情報）書込みラッパ。
@@ -32,4 +35,68 @@ export async function createEntry(params: {
       state: entry.state,
     },
   });
+}
+
+/// Inbox に表示する「現在版の原情報」のみを一覧取得する（Issue #8）。
+/// state="S1" に限定する: Inbox は原情報の受信箱であり、AI 派生（S2 等）を原情報と
+/// 同じ見た目で混在させない（P3 来歴 / 05 §3.1「原情報とAI要約を同じ見え方にしない」）。
+/// revisedBy が空 = まだ誰にも新版で置き換えられていない Entry。旧版は自動的に一覧から外れる。
+export async function listCurrentEntries() {
+  return prisma.entry.findMany({
+    where: { state: "S1", revisedBy: { none: {} } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/// 原情報（S1）の「修正」を新版として保存する（Issue #8）。旧版は一切書き換えない（06 §9 不変性）。
+export async function reviseEntry(params: { entryId: string; body: string }) {
+  const target = await prisma.entry.findUnique({ where: { id: params.entryId } });
+  if (!target) {
+    throw new Error(`entry not found: ${params.entryId}`);
+  }
+
+  assertRevisionTargetIsOriginal(target);
+
+  const revision = {
+    kind: target.kind,
+    origin: target.origin,
+    state: "S1",
+    sourceEntryId: null,
+  };
+  validateEntryInvariants(revision);
+
+  return prisma.entry.create({
+    data: {
+      kind: revision.kind,
+      body: params.body,
+      source: target.source,
+      origin: revision.origin,
+      state: revision.state,
+      revisesEntryId: target.id,
+    },
+  });
+}
+
+export interface DeleteEntryResult {
+  /// 削除がブロックされた理由（派生・改訂履歴が残っているため）。undefined なら削除成功。
+  blocked?: string;
+}
+
+/// Entry を削除する（Issue #8、確認ダイアログを挟んだ上で呼ばれる前提）。
+/// 派生（sourceEntryId で参照）または改訂履歴（revisesEntryId で参照）を持つ場合は削除せず理由を返す
+/// （Provenance・改訂履歴を来歴ごと消してしまうことを防ぐ。PR #4 レビュー IMPORTANT 指摘への対応）。
+export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
+  const [derivedCount, revisionCount] = await Promise.all([
+    prisma.entry.count({ where: { sourceEntryId: entryId } }),
+    prisma.entry.count({ where: { revisesEntryId: entryId } }),
+  ]);
+
+  if (derivedCount > 0 || revisionCount > 0) {
+    return {
+      blocked: "この記録には派生情報または改訂履歴があるため削除できません。",
+    };
+  }
+
+  await prisma.entry.delete({ where: { id: entryId } });
+  return {};
 }

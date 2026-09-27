@@ -54,9 +54,19 @@ model Entry {
   /// 来歴参照（Provenance link / State_Taxonomy §5）。
   /// 派生（state ∈ {S2,S4,S5}）は親 Entry を必須参照。原情報（S1）は null。
   /// 「派生なら必須／原情報なら null」の条件付き必須は lib/domain のガードで担保する。
+  /// onDelete: Restrict — 親を削除すると来歴が失われる（SET NULL は Provenance 改ざん防止に反する。
+  /// PR #4 レビュー IMPORTANT 指摘、Issue #8（削除機能）着手にあたり解消）。
   sourceEntryId String?
-  sourceEntry   Entry?  @relation("EntryProvenance", fields: [sourceEntryId], references: [id])
+  sourceEntry   Entry?  @relation("EntryProvenance", fields: [sourceEntryId], references: [id], onDelete: Restrict)
   derivedEntries Entry[] @relation("EntryProvenance")
+
+  /// 版参照（Issue #8「修正は新版生成」/ 06 §9・§13「原情報は不変、外部更新は新版追記」）。
+  /// 派生の来歴（sourceEntryId）とは別概念: 同じ state=S1 同士を「この Entry は revisesEntryId の新版である」で繋ぐ。
+  /// 旧版（revisesEntryId が指す側）は一切書き換えない。一覧は revisedBy が空の Entry のみを「現在版」として表示する。
+  /// onDelete: Restrict — 旧版が既に新版を持つ場合、旧版だけを削除して改訂履歴を失うことを防ぐ。
+  revisesEntryId String?
+  revisesEntry   Entry?  @relation("EntryRevision", fields: [revisesEntryId], references: [id], onDelete: Restrict)
+  revisedBy      Entry[] @relation("EntryRevision")
 }
 
 /// Settings — 利用者の制御面（05 §8）。Entry（原情報）とは別概念で、
