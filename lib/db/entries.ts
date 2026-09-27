@@ -109,3 +109,14 @@ export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
   await prisma.entry.delete({ where: { id: entryId } });
   return {};
 }
+
+/// 翌日への引継ぎ（Issue #18）で使う、直近の振り返り（S8）を取得する。
+/// `beforeDate` より前に作成されたものに限定し、当日中に既に記録した振り返りを
+/// 「前回の引継ぎ」として自分自身に表示してしまうことを避ける。
+/// 記録の間隔（空白期間）は問わず、単に「直近の1件」を返す（`11 §3.2` 罰のない再開）。
+export async function getLatestReflection(beforeDate: Date) {
+  return prisma.entry.findFirst({
+    where: { state: "S8", createdAt: { lt: beforeDate } },
+    orderBy: { createdAt: "desc" },
+  });
+}

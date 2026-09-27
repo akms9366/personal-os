@@ -1,6 +1,7 @@
 import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { getSpace } from "@/lib/navigation/spaces";
 import { listTasks } from "@/lib/db/tasks";
+import { getLatestReflection } from "@/lib/db/entries";
 import { getTodayEvents } from "@/lib/calendar/sync";
 import { getTimeOfDay } from "@/lib/home/timeOfDay";
 import type { TaskStatus } from "@/lib/domain/task";
@@ -22,7 +23,14 @@ const space = getSpace("home")!;
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [tasks, todayEvents] = await Promise.all([listTasks(), getTodayEvents()]);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const [tasks, todayEvents, latestReflection] = await Promise.all([
+    listTasks(),
+    getTodayEvents(),
+    getLatestReflection(todayStart),
+  ]);
 
   const taskCounts = tasks.reduce(
     (counts, task) => {
@@ -37,7 +45,11 @@ export default async function HomePage() {
     (a, b) => a.start.getTime() - b.start.getTime(),
   );
 
-  const timeOfDay = getTimeOfDay();
+  const timeOfDay = getTimeOfDay(now);
+
+  const heldTaskTitles = tasks
+    .filter((task) => task.status === "hold")
+    .map((task) => task.title);
 
   return (
     <SpaceScaffold space={space}>
@@ -51,6 +63,12 @@ export default async function HomePage() {
             nextEvent: sortedEvents[0]
               ? { start: sortedEvents[0].start, summary: sortedEvents[0].summary }
               : undefined,
+          }}
+          handoff={{
+            reflection: latestReflection
+              ? { date: latestReflection.createdAt, body: latestReflection.body }
+              : undefined,
+            heldTaskTitles,
           }}
         />
 
