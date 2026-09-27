@@ -264,3 +264,49 @@ Issue #4 の完了条件は「5タブ遷移／モバイルで崩れない／外�
 #### 検証
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 13/13 成功（Issue #3 の不変条件テストを維持）/ `npm run build` 成功（5 Space ＋ `/` を静的 prerender）。
+
+---
+
+## 2026-09-27
+
+### Issue #5
+
+#### 概要
+
+単一ユーザー認証。自分だけがアクセスできるように、全画面を保護する。`14 §3` の決定（環境変数パスワード or NextAuth Credentials）のうち、**環境変数パスワード＋自前の署名付きセッション Cookie** を採用し、NextAuth 等の追加依存は導入しなかった。
+
+- 対応 Issue: [personal-os-design#5](https://github.com/akms9366/personal-os-design/issues/5)
+- Pull Request: personal-os#6（作成予定）
+- feature ブランチ: `feature/issue-005-auth`
+- 前提: Issue #4（PR #5）は本セッション内で Merge 済み（merge commit `9b4c69a`）。設計リポ Issue #4 も Close 済み。
+
+#### 追加
+
+- `lib/auth/session.ts`: パスワード検証（`verifyPassword`, 定数時間比較）とセッショントークンの発行・検証（`createSessionToken` / `verifySessionToken`）。Web Crypto API（`crypto.subtle`）のみで実装し、Node 専用 API（`Buffer` 等）を使わない。Edge runtime（`proxy.ts`）と Node runtime（Server Action）の両方から同一ロジックを利用できる。
+- `proxy.ts`（Next.js 16 の新命名規約。旧 `middleware.ts` は非推奨）: `/login` を除く全画面を保護。未認証は `/login?next=<元のパス>` へリダイレクト。
+- `app/login/page.tsx` / `LoginForm.tsx` / `actions.ts`: ログイン画面。React 19 の `useActionState` でエラー表示（「パスワードが違います。」）。Server Action がパスワード照合しセッション Cookie（HttpOnly, SameSite=Lax, 本番のみ Secure, 30日）を発行、`next` パラメータの遷移先へ `redirect`。既にログイン済みで `/login` を開いた場合は `/home` へ即リダイレクト。
+- `.env.example`: `AUTH_PASSWORD` / `AUTH_SESSION_SECRET` を追記（値はプレースホルダ）。
+
+#### 設計判断
+
+- **NextAuth を導入しない**: `14 §3` はどちらでも良いとしていたが、単一ユーザー・パスワード1個のためだけに NextAuth（プロバイダ抽象化・DB アダプタ等）を入れるのは「シンプル・保守しやすい」（`14 §1` 判断基準の2/3位）に反する。Web Crypto ベースの最小実装（約120行）で完了条件を満たせるため、追加依存ゼロで実装した。
+- **セッションは HMAC 署名付き Cookie（サーバ側ストアなし）**: 自分専用・単一セッションのため、DB にセッションテーブルを持つ必要はない。`AUTH_SESSION_SECRET` の HMAC-SHA256 で署名し、Cookie 単体の署名検証だけで真正性と有効期限（30日）を確認する。秘密鍵未設定時は fail closed（誰も認証できない）。
+- **パスワードは平文の環境変数比較**: 単一ユーザー・ローカル優先（`14 §3` 保存方式決定）のため、ハッシュ化・ソルト等は過剰実装と判断。`.env*` は既に `.gitignore` 済みで平文値がリポジトリに入る経路はない。
+- **`middleware.ts` ではなく `proxy.ts`**: 実装中に Next.js 16.2.12 のビルドが `middleware` ファイル規約の非推奨化を警告したため（https://nextjs.org/docs/messages/middleware-to-proxy）、現行バージョンの正式な規約に合わせて `proxy.ts` ＋ `export function proxy` を採用。Issue #5 のスコープ内の実装詳細として、ユーザー確認なしで判断した。
+- **`next` リダイレクトパラメータ**: 完了条件には明記されていないが、認証を挟んでも元の遷移先に戻れることは実務利用上ほぼ必須の挙動であり、実装コストも小さいため含めた。
+
+#### 今後への影響
+
+- Epic2 以降（Quick Capture 等）で新設する API Route / Server Action は、`proxy.ts` の matcher（`_next` 静的アセット・`favicon.ico`・`login` 以外の全パス）に自動的に含まれるため、個別に認証チェックを書かなくても保護される。
+- ログアウト機能は本 Issue の完了条件（未認証→リダイレクト／認証後→アクセス可）に含まれないため未実装。必要になれば Settings 骨格（#6）実装時に検討する。
+- Settings 骨格（#6）で「AI & Automation」等の設定 UI を作る際、認証保護は本 Issue の `proxy.ts` がすでに適用範囲としてカバーする。
+
+#### 問題・制約
+
+- パスワード変更・忘却時の復旧手段は UI になし（`.env` を直接書き換える運用を前提とする）。自分専用ローカル運用のため許容。
+- セッション有効期限は固定30日でハードコード。設定画面での可変化は将来必要になれば対応。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 13/13 成功（既存の状態区別コアテストに影響なし）/ `npm run build` 成功（`/login` のみ動的、他は静的）。
+- dev サーバ（3100）で実挙動確認: 未認証で `/insights` へ直接アクセス→`/login?next=%2Finsights` へリダイレクト／誤パスワードでエラー表示／正パスワードで `/insights`（元の遷移先）へ復帰／認証済みで `/login` 再訪問時は `/home` へ即リダイレクト。コンソールエラーなし。
