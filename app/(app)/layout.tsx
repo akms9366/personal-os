@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { SpaceNav } from "@/components/navigation/SpaceNav";
+import { QuickCapture } from "@/components/capture/QuickCapture";
 
 // アプリ骨格（5 Space 共通シェル）。設計参照: 05 §9.2/§9.3。
 //   - PC（md 以上）: 左サイドバーに 5 Space の縦ナビ。
@@ -36,6 +37,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       >
         <SpaceNav variant="bottom" />
       </nav>
+
+      {/* Quick Capture（横断能力）: 5 Space どこからでも到達可能 */}
+      <QuickCapture />
     </div>
   );
 }
