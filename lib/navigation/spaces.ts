@@ -57,7 +57,7 @@ export const SPACES: readonly Space[] = [
     label: "Settings",
     title: "Settings",
     purpose: "主導権、接続、同意、制御",
-    status: "stub",
+    status: "active",
   },
 ] as const;
 

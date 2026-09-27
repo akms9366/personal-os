@@ -310,3 +310,49 @@ Issue #4 の完了条件は「5タブ遷移／モバイルで崩れない／外�
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 13/13 成功（既存の状態区別コアテストに影響なし）/ `npm run build` 成功（`/login` のみ動的、他は静的）。
 - dev サーバ（3100）で実挙動確認: 未認証で `/insights` へ直接アクセス→`/login?next=%2Finsights` へリダイレクト／誤パスワードでエラー表示／正パスワードで `/insights`（元の遷移先）へ復帰／認証済みで `/login` 再訪問時は `/home` へ即リダイレクト。コンソールエラーなし。
+
+---
+
+## 2026-09-27（続き）
+
+### Issue #6
+
+#### 概要
+
+Settings 骨格。`05 §8` の制御面のうち、`14 PR-06` が確定した MVP スコープ（4枠：Intent & Preferences / Connections / AI & Automation / Data & Privacy）の器を用意し、実際に機能するのは「AI & Automation」（API キー・モデルの保存）のみとした。
+
+- 対応 Issue: [personal-os-design#6](https://github.com/akms9366/personal-os-design/issues/6)
+- Pull Request: personal-os#7（作成予定）
+- feature ブランチ: `feature/issue-006-settings-skeleton`
+- 前提: Issue #4（PR #5）・Issue #5（PR #6）は本セッション内で Merge 済み。
+
+#### 追加
+
+- `prisma/schema.prisma`: `Settings` モデル（シングルトン、`id="singleton"` 固定）。`aiApiKey`（nullable, 平文保持）・`aiModel`（既定 `claude-sonnet-5`）・`updatedAt`。migration `20260927020620_add_settings`。
+- `lib/settings/store.ts`: `getSettings()`（マスク済みビューを返す。生のキーはこの層から外へ出さない）／`updateAiSettings()`（空欄保存で既存キーを消さないようガード）。
+- `app/(app)/settings/actions.ts`: 保存 Server Action（`useActionState` 用の状態を返す）。
+- `app/(app)/settings/AiSettingsForm.tsx`（Client）: モデル入力＋API キー入力（`type=password`、`placeholder` にマスク済み値、空欄=変更なし）。
+- `app/(app)/settings/page.tsx`: 4枠のレイアウト。AI & Automation 以外は「今後実装します」の一言スタブ（Issue #4 の Space スタブと同じ思想）。
+
+#### 変更
+
+- `lib/navigation/spaces.ts`: `settings` の `status` を `"stub"` → `"active"` に変更（Settings 空間は Issue #6 で実装完了のため、5空間ナビ骨格のスタブ扱いを終了）。
+
+#### 設計判断
+
+- **Settings は Entry モデルに乗せない**: `06_Data_Model.md §7 Ownership` と `Module_Layer_Space_Mapping.md §4`（Settings & Consent は Trust & Runtime Foundation 層）により、Settings は原情報（S1）ドメインと別概念と判断。Entry の origin/state/sourceEntryId 不変条件をこじつけて流用せず、専用の `Settings` シングルトンテーブルを新設した。
+- **4枠のうち機能するのは AI & Automation のみ**: `14 PR-06` の完了条件（設定の保存・読込／APIキー非表示）が要求するのはこの1枠のみ。Intent & Preferences・Connections・Data & Privacy は対応する機能自体がまだ存在しない（各後続 Issue が実装）ため、Issue #4 のスタブ空間と同じ「今後実装します」の一言に留め、偽の保存 UI を作らなかった（過剰実装回避）。
+- **API キーは DB に平文保持、画面表示のみマスク**: 完了条件は「画面に平文で出ない」であり、保存時の暗号化までは要求していない。ローカル優先 SQLite（`14 §3`）はすでに Entry 等の原情報を保持する信頼境界であり、Settings だけ別途暗号化基盤を足すのは `14 §2` の簡素化方針（監査・暗号化基盤は落とす）に反する。`getSettings()` がサーバ層で末尾4桁のみのマスク文字列に変換し、生の値をクライアントへは一切渡さない設計で完了条件を満たした。
+- **空欄保存で既存キーを消さない**: `updateAiSettings` は API キー欄が空なら既存値を保持する。モデル名だけを変更したい場合にキーを消してしまう事故を防ぐ（UI ミス耐性）。
+- **`server-only` パッケージは導入しない**: 未インストールの新規依存を避けるため見送り。Prisma Client は元々サーバ専用の前提で、クライアントバンドルに混入すればビルド時に破綻するため実害はない。
+
+#### 今後への影響
+
+- Issue #13（Google Calendar 接続）は Connections 枠に実データを追加する形で拡張する。
+- Issue #19（Claude API サーバ統合）は `lib/settings/store.ts` の `getSettings()` からモデル名・API キーを読む消費者になる想定。
+- Intent & Preferences・Data & Privacy は MVP 対象外機能（`14 §4` Won't/将来）に対応するため、現時点でスキーマを先取りしない。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 13/13 成功（既存テストに影響なし）/ `npm run build` 成功。
+- dev サーバで実挙動確認: API キー入力→保存→マスク表示（末尾4桁）に反映／ページリロード後も保存値が読み込まれる／レンダリング後の HTML に平文キーが含まれないことを `document.documentElement.outerHTML` で確認。コンソールエラーなし（HMR の WebSocket 警告のみ、プレビュー環境起因で無関係）。

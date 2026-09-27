@@ -58,3 +58,24 @@ model Entry {
   sourceEntry   Entry?  @relation("EntryProvenance", fields: [sourceEntryId], references: [id])
   derivedEntries Entry[] @relation("EntryProvenance")
 }
+
+/// Settings — 利用者の制御面（05 §8）。Entry（原情報）とは別概念で、
+/// System(Trust & Runtime Foundation層)が保持し利用者のみが更新する構成情報
+/// （Module_Layer_Space_Mapping §4「Settings & Consent」）。
+///
+/// MVP（Issue #6）では Must 範囲の「AI & Automation」枠のみ実データを持つ。
+/// Intent & Preferences / Connections / Data & Privacy は後続 Issue（#13, #19 等）で拡張する。
+/// 単一ユーザーのため常に1行のみ（シングルトン、id 固定）。
+model Settings {
+  id String @id @default("singleton")
+
+  /// Claude API キー（14 §3 AI 提供者）。平文で DB に保持する
+  /// （自分専用ローカル優先 SQLite が既存の信頼境界。14 §2 により監査・暗号化基盤は追加しない）。
+  /// 画面には表示しない（Issue #6 完了条件）。UI 層は末尾数桁のみのマスク表示に限定する。
+  aiApiKey String?
+
+  /// 使用モデル。既定は 14 §3 の決定値。
+  aiModel String @default("claude-sonnet-5")
+
+  updatedAt DateTime @updatedAt
+}
