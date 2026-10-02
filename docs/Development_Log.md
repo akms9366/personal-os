@@ -938,3 +938,41 @@ VPS公開はローカル専用を前提としていた既存の信頼境界（`1
 
 - `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 30/30 成功（rateLimit関連5件新規、既存25件に影響なし）/ `npm run build` 成功。`.next/standalone/server.js` が生成されることを確認。
 - ユーザーが実際にログイン中の dev サーバー（ポート3000）を壊さないよう、ロックアウトの実機クリックスルー検証は行わず、単体テスト（5件、発動・非発動・成功時リセット・期限切れ自動解除・キー別独立性を網羅）と既存のログイン画面のコンソールエラーなし確認に留めた。
+
+---
+
+## 2026-10-02
+
+### Next.js セキュリティアップグレード（ConoHa VPS への実公開直前に対応）
+
+#### 概要
+
+ConoHa VPS（`160.251.142.148`, ドメイン `os-akms-ngn.com`）へのデプロイ作業中、サーバー側で `npm ci` を実行した際に `npm audit` が `next@16.2.12` の **critical** 脆弱性を再検出した。ローカル開発時（Issue #14 実装時）に一度発見し「公開前に対応すべき」としてフォローアップ扱いにしていたが、まさに今回が「公開する瞬間」であるため、デプロイを先に進めず本体を修正した。
+
+- ブランチ: `chore-next-security-upgrade`
+- Pull Request: personal-os#21（作成予定）
+
+#### 変更
+
+- `package.json` / `package-lock.json`: `next` を `16.2.12` → `^16.3.8` へアップグレード。
+
+#### 設計判断
+
+- **3件のCVEのうち2件はOS非依存と判断し、今回確実に修正対象とした**: `npm audit` は以下を報告していた。
+  - GHSA-p293-qw3h-jr36（Windows-hosted servers での未認証RCE）— デプロイ先はUbuntu VPSのため直接は該当しないが、
+  - GHSA-2xp9-vwfh-vxw4（Image Optimization API・AVIF使用時の未認証RCE）
+  - GHSA-vcvr-r3jv-pc5j（`next/og` ImageResponse のRCE）
+  
+  後者2件はホストOSに依存せず、Personal OS が `next/image`・`next/og` を現時点で明示的に使っていなくても、Next.js の組み込みルートとして到達可能である限りリスクが残る。インターネットに公開する以上、これらを残したまま進めるべきではないと判断した。
+- **`npm audit fix --force` ではなく明示的な `npm install next@^16.3.8` を選択**: `--force` は他の無関係な破壊的変更（prisma のダウングレード等）も一括で行ってしまうため、影響範囲を Next.js 本体のみに限定した。
+- **残り8件（moderate/high）は今回のスコープ外とした**: vitest・brace-expansion・deepmerge-ts(prisma依存)・js-yaml 等はいずれも開発依存、または本番の攻撃面に直結しないため、critical対応を最優先し、残りは別途の判断に委ねる。
+
+#### 実装中に発生した事故
+
+- ローカルで `npm install` を実行した際、**ユーザーが同じディレクトリで起動していた `npm run dev`（ポート3000）がクラッシュした**。`node_modules` を実行中に書き換えたことが原因と推測される。ユーザーに dev サーバーの再起動を依頼した。
+  - **教訓**: 今後、ユーザーが dev サーバーを起動中と分かっている作業ディレクトリで `npm install`／`npm ci` 等 `node_modules` を書き換えるコマンドを実行する前に、サーバー停止を一声かけるか、少なくとも実行後に壊れていないか確認すること。
+
+#### 検証
+
+- `npm run lint` 成功 / `npm run typecheck` 成功 / `npm test` 30/30 成功（既存テストに影響なし）/ `npm run build` 成功。
+- `npm audit` で critical severity が解消されたことを確認（11件→8件、critical 0件）。
