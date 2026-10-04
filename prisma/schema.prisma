@@ -86,7 +86,14 @@ model Task {
   dueAt DateTime?
 
   /// 許容値: "low" | "medium" | "high"。未設定（null）を許容する（自動確定しない）。
+  /// 旧フィールド。重要度×緊急度マトリクス導入後は importance を使う（既存値は移行時に importance へ写した）。
   priority String?
+
+  /// 重要度（1=低 / 2=中 / 3=高）。利用者が選ぶ。null=未設定（旧データ）。
+  importance Int?
+
+  /// 緊急度（1=低 / 2=中 / 3=高）。緊急度1は時間順リストから外し、重要度順の別枠に表示する。
+  urgency Int?
 
   createdAt DateTime @default(now())
 
@@ -122,4 +129,98 @@ model Settings {
   calendarLastSyncError String?
 
   updatedAt DateTime @updatedAt
+}
+
+/// Hospital — 通院先（病院・診療科）。診察記録（HospitalVisit）を病院別に束ねる。
+model Hospital {
+  id         String   @id @default(cuid())
+  name       String
+  department String?
+  note       String?
+  createdAt  DateTime @default(now())
+
+  visits HospitalVisit[]
+}
+
+/// HospitalVisit — 1回の診察記録。自分の状況 / 医師とのやりとり / 今後の処方 を分けて残す。
+/// 日付は利用者の暦日（JST）をそのまま "YYYY-MM-DD" 文字列で保持する（サーバの TZ に左右されない）。
+model HospitalVisit {
+  id           String   @id @default(cuid())
+  hospitalId   String
+  hospital     Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  visitDate    String
+  condition    String?
+  doctorNotes  String?
+  prescription String?
+  nextVisit    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([hospitalId, visitDate])
+}
+
+/// WeightRecord — 体重記録。1日1件（同じ日付は上書き）。
+model WeightRecord {
+  id         String   @id @default(cuid())
+  date       String   @unique
+  weightKg   Float
+  bodyFatPct Float?
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// Memo — 気になるメモ。タグ（Tag）で整理する。Entry（不変の原情報）とは別の、編集可能なメモ。
+model Memo {
+  id        String   @id @default(cuid())
+  title     String
+  body      String?
+  url       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tags Tag[]
+}
+
+/// Tag — メモのタグ。名前の変更・削除ができる。
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  memos Memo[]
+}
+
+/// ShoppingItem — 買い物メモ。
+model ShoppingItem {
+  id        String    @id @default(cuid())
+  name      String
+  quantity  String?
+  checked   Boolean   @default(false)
+  checkedAt DateTime?
+  createdAt DateTime  @default(now())
+}
+
+/// FinanceRecord — 収支記録。AI（自然文・レシート画像）で下書きし、利用者が確認して保存する。
+/// AI は下書きを作るだけで、保存は必ず利用者の明示操作で行う（AI は提案、決定は利用者）。
+model FinanceRecord {
+  id            String   @id @default(cuid())
+  /// 発生日（JST の暦日 "YYYY-MM-DD"）。
+  date          String
+  /// 許容値: "expense" | "income"。値域は lib/domain/finance.ts。
+  type          String
+  /// 金額（円、正の整数）。
+  amount        Int
+  category      String
+  description   String
+  paymentMethod String?
+  memo          String?
+  /// 起点: "ai"（AI 下書きを確認して保存）| "manual"（手入力）。
+  source        String   @default("manual")
+  /// AI 起点の場合、AI に渡した元の入力テキスト（来歴）。
+  sourceText    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([date])
 }

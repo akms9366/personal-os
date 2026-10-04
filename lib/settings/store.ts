@@ -33,6 +33,12 @@ export async function getSettings(): Promise<SettingsView> {
   };
 }
 
+/// AI 呼び出し用の設定（サーバ内部専用。API キーを画面へ渡さないこと）。
+export async function getAiConfig(): Promise<{ apiKey: string | null; model: string }> {
+  const row = await prisma.settings.findUnique({ where: { id: SETTINGS_ID } });
+  return { apiKey: row?.aiApiKey ?? null, model: row?.aiModel ?? "claude-sonnet-5" };
+}
+
 /// Issue #14（今日の予定の表示）が実際の取得に使う、秘密URLそのもの。
 /// 画面には一切渡さない（サーバ内部専用）。
 export async function getCalendarIcsUrl(): Promise<string | null> {

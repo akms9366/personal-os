@@ -50,7 +50,7 @@ export const SPACES: readonly Space[] = [
     label: "Finance",
     title: "Finance",
     purpose: "お金の状況と判断材料",
-    status: "stub",
+    status: "active",
   },
   {
     slug: "settings",

@@ -4,11 +4,14 @@ import { listTasks } from "@/lib/db/tasks";
 import { getLatestReflection } from "@/lib/db/entries";
 import { getTodayEvents } from "@/lib/calendar/sync";
 import { getTimeOfDay } from "@/lib/home/timeOfDay";
-import type { TaskStatus } from "@/lib/domain/task";
+import { organizeTasks, type TaskStatus } from "@/lib/domain/task";
+import { formatDateTimeLabel, toJstDateString, toJstTimeString, todayJst } from "@/lib/time/jst";
+import { CsvLink } from "@/components/ui/CsvLink";
 import { CurrentState } from "./CurrentState";
 import { ReflectionForm } from "./ReflectionForm";
 import { TaskCreateForm } from "./TaskCreateForm";
-import { TaskList } from "./TaskList";
+import { TaskList, type TaskView } from "./TaskList";
+import { TaskMatrix } from "./TaskMatrix";
 import { TodayEvents } from "./TodayEvents";
 
 // Home 空間（05 §4「今日行動するための画面」）。
@@ -46,6 +49,20 @@ export default async function HomePage() {
   );
 
   const timeOfDay = getTimeOfDay(now);
+
+  const organized = organizeTasks(tasks);
+  const toView = (task: (typeof tasks)[number]): TaskView => ({
+    id: task.id,
+    title: task.title,
+    note: task.note,
+    status: task.status,
+    dueLabel: task.dueAt ? formatDateTimeLabel(task.dueAt) : null,
+    dueDate: task.dueAt ? toJstDateString(task.dueAt) : "",
+    dueTime: task.dueAt ? toJstTimeString(task.dueAt) : "23:59",
+    overdue: task.dueAt ? task.dueAt.getTime() < now.getTime() : false,
+    importance: task.importance,
+    urgency: task.urgency,
+  });
 
   const heldTaskTitles = tasks
     .filter((task) => task.status === "hold")
@@ -89,18 +106,53 @@ export default async function HomePage() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              タスク
-            </h3>
-            <TaskCreateForm />
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                タスク（期限順）
+              </h3>
+              <CsvLink kind="tasks" />
+            </div>
+            <TaskCreateForm today={todayJst(now)} />
             <TaskList
-              tasks={tasks.map((task) => ({
+              tasks={organized.timeline.map(toView)}
+              emptyText="期限のあるタスクはありません。上から追加できます。"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              緊急度1（重要度順）
+            </h3>
+            <TaskList
+              tasks={organized.lowUrgency.map(toView)}
+              emptyText="緊急度1のタスクはありません。"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              重要度 × 緊急度
+            </h3>
+            <TaskMatrix
+              tasks={[...organized.timeline, ...organized.lowUrgency].map((task) => ({
                 id: task.id,
                 title: task.title,
-                status: task.status,
+                importance: task.importance,
+                urgency: task.urgency,
               }))}
             />
           </div>
+
+          {organized.done.length > 0 ? (
+            <details className="flex flex-col gap-3">
+              <summary className="cursor-pointer text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                完了（{organized.done.length}件）
+              </summary>
+              <div className="pt-3">
+                <TaskList tasks={organized.done.map(toView)} emptyText="" />
+              </div>
+            </details>
+          ) : null}
         </section>
 
         <section className="flex flex-col gap-3">
