@@ -1,42 +1,52 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useState } from "react";
 import { createTaskAction, type TaskActionState } from "./actions";
+import { TaskFields } from "./TaskFields";
+import { primaryButtonClass } from "@/components/ui/styles";
 
 const initialState: TaskActionState = {};
 
-export function TaskCreateForm() {
+export function TaskCreateForm({ today }: { today: string }) {
+  // 送信成功ごとに入力欄を初期状態へ戻す（時刻の「その他」選択状態も含めてリセットする）。
+  const [formKey, setFormKey] = useState(0);
   const [state, formAction, pending] = useActionState(
-    createTaskAction,
+    async (prevState: TaskActionState, formData: FormData) => {
+      const result = await createTaskAction(prevState, formData);
+      if (result.success) {
+        setFormKey((key) => key + 1);
+      }
+      return result;
+    },
     initialState,
   );
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.success) {
-      formRef.current?.reset();
-    }
-  }, [state.success]);
 
   return (
-    <form ref={formRef} action={formAction} className="flex gap-2">
-      <input
-        name="title"
-        type="text"
-        required
-        placeholder="タスクを追加..."
-        className="flex-1 rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:text-zinc-50"
+    <form
+      key={formKey}
+      action={formAction}
+      className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+    >
+      <TaskFields
+        defaults={{
+          title: "",
+          note: "",
+          dueDate: today,
+          dueTime: "23:59",
+          importance: 2,
+          urgency: 2,
+        }}
       />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
-      >
-        {pending ? "追加中..." : "追加"}
-      </button>
-      {state.error ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
-      ) : null}
+      <div className="flex items-center justify-end gap-3">
+        {state.error ? (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            {state.error}
+          </p>
+        ) : null}
+        <button type="submit" disabled={pending} className={primaryButtonClass}>
+          {pending ? "追加中..." : "追加"}
+        </button>
+      </div>
     </form>
   );
 }

@@ -1,5 +1,5 @@
 import { prisma } from "./client";
-import { isTaskPriority, isTaskStatus } from "@/lib/domain/task";
+import { isTaskLevel, isTaskPriority, isTaskStatus } from "@/lib/domain/task";
 
 // Task CRUD の唯一の入口。Entry と異なり不変ではないため、通常の作成・取得・更新・削除を提供する
 // （lib/db/entries.ts のガード経由書込み規約と同様、Prisma を直接叩かずここを経由する）。
@@ -17,12 +17,23 @@ export interface CreateTaskParams {
   status?: string;
   dueAt?: Date | null;
   priority?: string | null;
+  importance?: number | null;
+  urgency?: number | null;
   originEntryId?: string | null;
 }
 
 function assertValidStatus(status: string): void {
   if (!isTaskStatus(status)) {
     throw new TaskValidationError(`invalid status: ${status}`);
+  }
+}
+
+function assertValidLevel(
+  name: string,
+  value: number | null | undefined,
+): void {
+  if (value != null && !isTaskLevel(value)) {
+    throw new TaskValidationError(`invalid ${name}: ${value}`);
   }
 }
 
@@ -36,6 +47,8 @@ export async function createTask(params: CreateTaskParams) {
   const status = params.status ?? "todo";
   assertValidStatus(status);
   assertValidPriority(params.priority);
+  assertValidLevel("importance", params.importance);
+  assertValidLevel("urgency", params.urgency);
 
   return prisma.task.create({
     data: {
@@ -44,6 +57,8 @@ export async function createTask(params: CreateTaskParams) {
       status,
       dueAt: params.dueAt ?? null,
       priority: params.priority ?? null,
+      importance: params.importance ?? null,
+      urgency: params.urgency ?? null,
       originEntryId: params.originEntryId ?? null,
     },
   });
@@ -63,6 +78,8 @@ export interface UpdateTaskParams {
   status?: string;
   dueAt?: Date | null;
   priority?: string | null;
+  importance?: number | null;
+  urgency?: number | null;
 }
 
 export async function updateTask(id: string, params: UpdateTaskParams) {
@@ -72,6 +89,8 @@ export async function updateTask(id: string, params: UpdateTaskParams) {
   if (params.priority !== undefined) {
     assertValidPriority(params.priority);
   }
+  assertValidLevel("importance", params.importance);
+  assertValidLevel("urgency", params.urgency);
 
   return prisma.task.update({
     where: { id },

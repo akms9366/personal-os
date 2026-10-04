@@ -1,14 +1,34 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-import { updateTaskStatusAction } from "./actions";
+import { useActionState, useState, useTransition } from "react";
+import {
+  deleteTaskAction,
+  updateTaskAction,
+  updateTaskStatusAction,
+  type TaskActionState,
+} from "./actions";
+import { TaskFields } from "./TaskFields";
 import type { TaskStatus } from "@/lib/domain/task";
+import {
+  dangerButtonClass,
+  emptyClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from "@/components/ui/styles";
 
 export interface TaskView {
   id: string;
   title: string;
+  note: string | null;
   status: string;
+  /// 表示用の期限ラベル（例: "10/4(日) 18:00"）。期限なしは null。
+  dueLabel: string | null;
+  dueDate: string;
+  dueTime: string;
+  overdue: boolean;
+  importance: number | null;
+  urgency: number | null;
 }
 
 // 状態は中立的な表現にする（`11 §2`: 保留・未完了を失敗として扱わない）。
@@ -21,50 +41,184 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 
 const STATUS_OPTIONS: TaskStatus[] = ["todo", "doing", "hold", "done"];
 
+const LEVEL_BADGE: Record<number, string> = {
+  3: "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900",
+  2: "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100",
+  1: "border border-zinc-300 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400",
+};
+
+function LevelBadge({ label, level }: { label: string; level: number | null }) {
+  if (level == null) {
+    return null;
+  }
+  return (
+    <span
+      className={`rounded px-1.5 py-0.5 text-[11px] leading-none ${LEVEL_BADGE[level]}`}
+    >
+      {label}
+      {level}
+    </span>
+  );
+}
+
+const initialState: TaskActionState = {};
+
+function TaskEditForm({
+  task,
+  onDone,
+}: {
+  task: TaskView;
+  onDone: () => void;
+}) {
+  const [state, formAction, pending] = useActionState(
+    async (prevState: TaskActionState, formData: FormData) => {
+      const result = await updateTaskAction(prevState, formData);
+      if (result.success) {
+        onDone();
+      }
+      return result;
+    },
+    initialState,
+  );
+
+  return (
+    <form action={formAction} className="flex flex-col gap-3 pt-3">
+      <input type="hidden" name="taskId" value={task.id} />
+      <TaskFields
+        showNote
+        defaults={{
+          title: task.title,
+          note: task.note ?? "",
+          dueDate: task.dueDate,
+          dueTime: task.dueTime,
+          importance: task.importance ?? 2,
+          urgency: task.urgency ?? 2,
+        }}
+      />
+      <div className="flex items-center justify-end gap-2">
+        {state.error ? (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            {state.error}
+          </p>
+        ) : null}
+        <button type="button" onClick={onDone} className={secondaryButtonClass}>
+          キャンセル
+        </button>
+        <button type="submit" disabled={pending} className={primaryButtonClass}>
+          {pending ? "保存中..." : "保存"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function TaskRow({ task }: { task: TaskView }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
 
-  function handleChange(nextStatus: string) {
-    const formData = new FormData();
-    formData.set("taskId", task.id);
-    formData.set("status", nextStatus);
+  function run(action: typeof updateTaskStatusAction, formData: FormData) {
     startTransition(async () => {
-      await updateTaskStatusAction({}, formData);
+      await action({}, formData);
       // revalidatePath はサーバ側キャッシュを無効化するのみで、直接呼び出し（フォーム送信を
       // 介さない）の場合はクライアントの再描画を自動でトリガーしないため明示的に refresh する。
       router.refresh();
     });
   }
 
+  function handleStatusChange(nextStatus: string) {
+    const formData = new FormData();
+    formData.set("taskId", task.id);
+    formData.set("status", nextStatus);
+    run(updateTaskStatusAction, formData);
+  }
+
+  function handleDelete() {
+    if (!window.confirm(`「${task.title}」を削除しますか？`)) {
+      return;
+    }
+    const formData = new FormData();
+    formData.set("taskId", task.id);
+    run(deleteTaskAction, formData);
+  }
+
+  const done = task.status === "done";
+
   return (
-    <li className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800">
-      <span className="text-sm text-zinc-900 dark:text-zinc-50">
-        {task.title}
-      </span>
-      <select
-        value={task.status}
-        disabled={pending}
-        onChange={(event) => handleChange(event.target.value)}
-        className="rounded-md border border-zinc-300 bg-transparent px-2 py-1 text-sm text-zinc-900 outline-none disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50"
-      >
-        {STATUS_OPTIONS.map((status) => (
-          <option key={status} value={status}>
-            {STATUS_LABELS[status]}
-          </option>
-        ))}
-      </select>
+    <li className="rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800">
+      <div className="flex items-start justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setEditing((value) => !value)}
+          className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left"
+          aria-expanded={editing}
+        >
+          <span
+            className={`text-sm ${done ? "text-zinc-400 line-through" : "text-zinc-900 dark:text-zinc-50"}`}
+          >
+            {task.title}
+          </span>
+          <span className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+            {task.dueLabel ? (
+              <span
+                className={
+                  task.overdue && !done
+                    ? "font-medium text-red-600 dark:text-red-400"
+                    : ""
+                }
+              >
+                {task.dueLabel}
+              </span>
+            ) : (
+              <span>期限なし</span>
+            )}
+            <LevelBadge label="重要" level={task.importance} />
+            <LevelBadge label="緊急" level={task.urgency} />
+          </span>
+        </button>
+        <select
+          value={task.status}
+          disabled={pending}
+          onChange={(event) => handleStatusChange(event.target.value)}
+          aria-label="状態"
+          className="rounded-md border border-zinc-300 bg-transparent px-2 py-1 text-sm text-zinc-900 outline-none disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50"
+        >
+          {STATUS_OPTIONS.map((status) => (
+            <option key={status} value={status}>
+              {STATUS_LABELS[status]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {editing ? (
+        <>
+          <TaskEditForm task={task} onDone={() => setEditing(false)} />
+          <div className="flex justify-start pt-1">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={pending}
+              className={dangerButtonClass}
+            >
+              削除
+            </button>
+          </div>
+        </>
+      ) : null}
     </li>
   );
 }
 
-export function TaskList({ tasks }: { tasks: TaskView[] }) {
+export function TaskList({
+  tasks,
+  emptyText,
+}: {
+  tasks: TaskView[];
+  emptyText: string;
+}) {
   if (tasks.length === 0) {
-    return (
-      <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-        まだタスクがありません。下から追加できます。
-      </p>
-    );
+    return <p className={emptyClass}>{emptyText}</p>;
   }
 
   return (
