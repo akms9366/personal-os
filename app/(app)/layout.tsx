@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { listTagsWithCount } from "@/lib/db/memos";
 import { SpaceNav } from "@/components/navigation/SpaceNav";
 import {
   QuickCapture,
@@ -7,12 +8,24 @@ import {
 } from "@/components/capture/QuickCapture";
 
 // アプリ骨格（5 Space 共通シェル）。設計参照: 05 §9.2/§9.3。
-//   - PC（md 以上）: 上部固定バー（64px・背景ぼかし）に 5 Space の横ナビ＋Quick Capture。
+//   - PC（md 以上）: 上部固定バー（64px・背景ぼかし）に 5 Space の横ナビ＋メモ投稿ボタン。
 //   - モバイル: 上部はロゴのみ、5 Space は下部固定バー（本文は下部バー分の余白を確保）。
-// 主タブは 5 Space のみ（05 §9.1）。Quick Capture / Search は横断能力のため
+// 主タブは 5 Space のみ（05 §9.1）。メモ投稿 / Search は横断能力のため
 // 主タブに含めない。外部サービス名も主ナビに出さない（05 §9.4）。
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+// メモのダイアログ（旧 Quick Capture）のタグ候補を毎回 DB から取るため、静的化しない。
+export const dynamic = "force-dynamic";
+
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const tags = await listTagsWithCount();
+  // 使われている数の多いタグから並べる（同数は名前順）。
+  const tagSuggestions = [...tags]
+    .sort(
+      (a, b) =>
+        b._count.memos - a._count.memos || a.name.localeCompare(b.name, "ja"),
+    )
+    .map((tag) => tag.name);
+
   return (
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-20 border-b border-dove/60 bg-paper/80 backdrop-blur-md">
@@ -44,8 +57,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <SpaceNav variant="bottom" />
       </nav>
 
-      {/* Quick Capture（横断能力）: 5 Space どこからでも到達可能 */}
-      <QuickCapture />
+      {/* メモ投稿（旧 Quick Capture。横断能力）: 5 Space どこからでも到達可能 */}
+      <QuickCapture tagSuggestions={tagSuggestions} />
     </div>
   );
 }

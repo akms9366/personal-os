@@ -17,8 +17,6 @@ export interface MemoActionState {
   error?: string;
 }
 
-const PATH = "/knowledge/memos";
-
 function readMemoForm(formData: FormData): MemoParams | { error: string } {
   const parsed = parseMemoText(String(formData.get("text") ?? ""));
   if (!parsed) {
@@ -49,13 +47,13 @@ export async function postMemoAction(
   } else {
     await createMemo(values);
   }
-  revalidatePath(PATH);
+  revalidatePath("/", "layout");
   return { success: true };
 }
 
 export async function deleteMemoAction(memoId: string): Promise<void> {
   await deleteMemo(memoId);
-  revalidatePath(PATH);
+  revalidatePath("/", "layout");
 }
 
 export async function renameTagAction(
@@ -67,11 +65,11 @@ export async function renameTagAction(
   if (!result.ok) {
     return { error: result.error };
   }
-  revalidatePath(PATH);
+  revalidatePath("/", "layout");
   return { success: true };
 }
 
 export async function deleteTagAction(tagId: string): Promise<void> {
   await deleteTag(tagId);
-  revalidatePath(PATH);
+  revalidatePath("/", "layout");
 }

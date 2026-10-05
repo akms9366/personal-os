@@ -26,8 +26,9 @@ export interface MemoParams {
   tagNames: string[];
 }
 
-export async function listMemos(tagName?: string) {
+export async function listMemos(tagName?: string, take?: number) {
   return prisma.memo.findMany({
+    take,
     where: tagName ? { tags: { some: { name: tagName } } } : undefined,
     include: { tags: { orderBy: { name: "asc" } } },
     // タイムライン表示のため投稿（作成）順。編集しても並びは動かさない。

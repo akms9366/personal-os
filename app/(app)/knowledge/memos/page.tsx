@@ -4,20 +4,16 @@ import { CsvLink } from "@/components/ui/CsvLink";
 import { eyebrowClass, metaClass } from "@/components/ui/styles";
 import { getSpace } from "@/lib/navigation/spaces";
 import { countMemos, listMemos, listTagsWithCount } from "@/lib/db/memos";
-import { composeMemoText } from "@/lib/domain/memo";
-import { formatDateTimeLabel, formatRelativeJst } from "@/lib/time/jst";
 import { KnowledgeTabs } from "../KnowledgeTabs";
-import { MemoComposer } from "./MemoComposer";
-import { MemoTimeline } from "./MemoTimeline";
+import { MemoComposer } from "@/components/memo/MemoComposer";
+import { MemoTimeline } from "@/components/memo/MemoTimeline";
+import { toMemoPostView } from "@/components/memo/memoView";
 import { TagManager } from "./TagManager";
 
 // メモ（タイムライン形式）。投稿欄＋新しい順のタイムライン、#タグ で絞り込む。
 const space = getSpace("knowledge")!;
 
 export const dynamic = "force-dynamic";
-
-/// 作成から1分以上あとに更新されたものを「編集済み」とする（保存時の誤差を除く）。
-const EDITED_THRESHOLD_MS = 60 * 1000;
 
 export default async function MemosPage({
   searchParams,
@@ -95,16 +91,7 @@ export default async function MemosPage({
                   ? `#${tag} のメモはありません。`
                   : "まだメモがありません。上の欄から最初の1件を投稿できます。"
               }
-              memos={memos.map((memo) => ({
-                id: memo.id,
-                text: composeMemoText(memo),
-                tags: memo.tags.map((t) => t.name),
-                timeLabel: formatRelativeJst(memo.createdAt, now),
-                timeTitle: formatDateTimeLabel(memo.createdAt),
-                edited:
-                  memo.updatedAt.getTime() - memo.createdAt.getTime() >
-                  EDITED_THRESHOLD_MS,
-              }))}
+              memos={memos.map((memo) => toMemoPostView(memo, now))}
             />
           </section>
         </div>

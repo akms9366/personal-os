@@ -3,10 +3,14 @@ import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { getSpace } from "@/lib/navigation/spaces";
 import { listTasks } from "@/lib/db/tasks";
 import { getLatestReflection } from "@/lib/db/entries";
+import { listMemos, listTagsWithCount } from "@/lib/db/memos";
 import { getTodayEvents } from "@/lib/calendar/sync";
 import { getTimeOfDay } from "@/lib/home/timeOfDay";
 import { organizeTasks, type TaskStatus } from "@/lib/domain/task";
 import { formatHeadlineDateJst, todayJst } from "@/lib/time/jst";
+import { MemoComposer } from "@/components/memo/MemoComposer";
+import { MemoTimeline } from "@/components/memo/MemoTimeline";
+import { toMemoPostView } from "@/components/memo/memoView";
 import { CsvLink } from "@/components/ui/CsvLink";
 import { eyebrowClass, sectionTitleClass } from "@/components/ui/styles";
 import { CurrentState } from "./CurrentState";
@@ -22,8 +26,12 @@ import { toTaskView } from "./taskView";
 // Issue #14 で今日の予定（read-only）を追加。
 // Issue #15 で現在地領域（要約）を追加。
 // Issue #17 で振り返り領域を追加（三領域が揃い Epic5 の主要部分が完成）。
-// 配置は globals.css の .home-grid（モバイル1列／PC は左タスク・右に現在地ほか）。
+// 旧 Quick Capture はメモ機能に統合し、Home に投稿欄と直近のメモを置く。
+// 配置は globals.css の .home-grid（モバイル1列／PC は左にメモ・タスク、右に現在地ほか）。
 const space = getSpace("home")!;
+
+/// Home に出す直近のメモの件数（全件・タグ絞り込みはメモページ）。
+const RECENT_MEMO_COUNT = 3;
 
 // 時間帯（Issue #17）は毎リクエストの実時刻で判定する必要があるため、静的最適化を無効化する
 // （さもないと prerender 時点の時刻に固定され、夜になっても振り返りの既定展開状態が変わらない）。
@@ -33,11 +41,21 @@ export default async function HomePage() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const [tasks, todayEvents, latestReflection] = await Promise.all([
-    listTasks(),
-    getTodayEvents(),
-    getLatestReflection(todayStart),
-  ]);
+  const [tasks, todayEvents, latestReflection, recentMemos, tags] =
+    await Promise.all([
+      listTasks(),
+      getTodayEvents(),
+      getLatestReflection(todayStart),
+      listMemos(undefined, RECENT_MEMO_COUNT),
+      listTagsWithCount(),
+    ]);
+  // 使われている数の多いタグから並べる（同数は名前順）。
+  const tagNames = [...tags]
+    .sort(
+      (a, b) =>
+        b._count.memos - a._count.memos || a.name.localeCompare(b.name, "ja"),
+    )
+    .map((tag) => tag.name);
 
   const taskCounts = tasks.reduce(
     (counts, task) => {
@@ -77,6 +95,28 @@ export default async function HomePage() {
       }
     >
       <div className="home-grid">
+        <section className="flex flex-col gap-4 [grid-area:memo]">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className={sectionTitleClass}>メモ</h2>
+            <Link
+              href="/knowledge/memos"
+              className={`${eyebrowClass} transition hover:text-ink`}
+            >
+              すべて見る →
+            </Link>
+          </div>
+          <div className="rounded-2xl bg-cream p-4 sm:p-5">
+            <MemoComposer tagSuggestions={tagNames} />
+          </div>
+          {recentMemos.length > 0 ? (
+            <MemoTimeline
+              tagSuggestions={tagNames}
+              emptyText=""
+              memos={recentMemos.map((memo) => toMemoPostView(memo, now))}
+            />
+          ) : null}
+        </section>
+
         <div className="[grid-area:state]">
           <CurrentState
             taskCounts={taskCounts}

@@ -1025,3 +1025,39 @@ ConoHa VPS（`160.251.142.148`, ドメイン `os-akms-ngn.com`）へのデプロ
 - `TZ=UTC`（VPS と同条件）で本番ビルドを起動し、Playwright で全画面を通しで操作: タスク作成（3プリセット＋任意時刻）・並び順・編集で緊急度1枠へ移動、メモのタグ付け/名前変更/絞り込み、病院・診察記録、体重（同日上書き・グラフ）、買い物、財務の手入力、6種の CSV 出力（未ログインは /login へリダイレクト、不明 kind は 404）。390px 幅で横スクロールが出ないことを確認。
 - AI 財務はモック API（`ANTHROPIC_BASE_URL`）で、画像縮小・リクエスト形式（構造化出力・画像ブロック）・下書きの正規化・確認後保存までを確認。実 API キーでの疎通は未確認。
 - 既存データ入り DB に新マイグレーションを適用し、Entry・Task が保持され `priority` → `importance` が写ることを確認。
+
+---
+
+## 2026-10-05
+
+### UI 全面リニューアル・完了タスク一覧・メモのタイムライン化・Quick Capture のメモ統合
+
+#### 概要
+
+利用者提供の DESIGN.md（warm cream / 黒ピル）に沿って全画面を刷新し（PR #23）、続けて次を行った。
+
+- **Quick Capture をメモ機能に統合**（ブランチ `feature-memo-home`）。利用者の判断: 「Quick Capture とメモは機能が被っているため、メモを残して Home に組み込む」。確認した方針は次の3点（いずれも推奨案）。
+  1. 右上の「メモ」ボタン（モバイルは右下の +）とショートカット `c` は残し、押すとメモの投稿欄（ダイアログ）が開き **Memo** として保存する。
+  2. 既存の Quick Capture / Journal の記録（旧 Inbox）は **Memo にコピー移行**し、Inbox 画面は廃止。
+  3. Home に「投稿欄＋直近3件のタイムライン」を置く。全件・タグ絞り込みは `/knowledge/memos`。
+- メモ: 本文中の `#タグ` がタグになるタイムライン形式（スキーマ変更なし。1行目 → title、以降 → body、最初の URL → url）。
+- 完了タスク一覧 `/home/done`、Home 見出しを JST の日付に。
+- 本番で Inbox に Quick Capture の記録が出なかった不具合を修正（PR #24）。原因は `/knowledge` が `output: "standalone"` のビルドで静的ページとして固定されていたこと（dev は常に動的なため気づけなかった）。**教訓: DB を読む画面は `export const dynamic = "force-dynamic"` を付け、dev だけで表示確認を済ませない（`npm run build` の出力で ○/ƒ を確認する）**。
+
+#### 変更（メモ統合）
+
+- 削除: `/knowledge` の Inbox 一覧・Journal 入力（`InboxItem` / `JournalForm` / `knowledge/actions.ts`）、`lib/capture/actions.ts`。`/knowledge` は `/knowledge/memos` へリダイレクト。Knowledge のサブタブから「記録」を削除。
+- 共通化: `components/memo/`（`MemoComposer` / `MemoTimeline` / `memoView.ts`）を Home・メモページ・ダイアログで共用。`QuickCapture` はメモの投稿ダイアログになった（タグ候補をレイアウトで取得）。
+- メモの保存・削除・タグ操作は `revalidatePath("/", "layout")`（どの画面から操作しても現在の画面が更新される）。
+- データ移行マイグレーション `20261005120000_entries_to_memos`（**INSERT のみ。Entry は変更・削除しない**）: 旧 Inbox と同じ条件（state=S1・kind≠event・他の Entry に修正されていない現在版）の Entry を Memo にコピー。1行目 → title、以降 → body、作成日時は元のまま、`id = 'entry-<元の id>'`（再実行しても二重に作られない）。S8（振り返り）は対象外。使い捨て DB で、対象外の除外・二重実行・Entry 不変を確認済み。
+
+#### 設計判断・留意点
+
+- 設計 SSOT（`05 §9.1` の「Quick Capture は横断能力」）の趣旨は、入口を横断的に保つこととして維持した（入口はそのまま、保存先をメモにした）。**設計リポ（`05_Information_Architecture.md`・`06_Data_Model.md` ほか）は未更新**。
+- Entry は振り返り（S8）・タスクの来歴（`originEntryId`）が参照するため、テーブルも `lib/db/entries.ts` も残した。`convertEntryToTask`（Inbox からのタスク化）は呼び出し元がなくなったが、今回は削除していない。
+- 一度メモに移行した Journal は、Journal 入力欄がなくなったためメモとして書く（振り返りは Home の振り返り欄に残る）。
+
+#### デプロイ時の作業（VPS）
+
+マイグレーションを含む。**`prisma migrate deploy` の前に本番 `.db`（`/opt/personal-os-data/prod.db`）をバックアップし、利用者の確認を待ってから実行する**（恒久ルール）。
+

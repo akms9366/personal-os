@@ -1,7 +1,10 @@
 "use client";
 
 import { useActionState, useRef, useState } from "react";
-import { postMemoAction, type MemoActionState } from "./actions";
+import {
+  postMemoAction,
+  type MemoActionState,
+} from "@/app/(app)/knowledge/memos/actions";
 import { extractHashtags } from "@/lib/domain/memo";
 import {
   errorTextClass,
@@ -28,10 +31,16 @@ export function MemoComposer({
   memo,
   tagSuggestions,
   onDone,
+  onPosted,
+  autoFocus = false,
 }: {
   memo?: { id: string; text: string; tags: string[] };
   tagSuggestions: string[];
+  /// 編集の完了・キャンセル（編集欄として使うとき）。
   onDone?: () => void;
+  /// 新規投稿に成功したとき（ダイアログを閉じるなど）。
+  onPosted?: () => void;
+  autoFocus?: boolean;
 }) {
   const [text, setText] = useState(memo?.text ?? "");
   // 本文に #タグ として書かれていない既存タグ（旧データ等）。編集時に外さない限り保持する。
@@ -49,6 +58,7 @@ export function MemoComposer({
           onDone();
         } else {
           setText("");
+          onPosted?.();
         }
       }
       return result;
@@ -84,7 +94,7 @@ export function MemoComposer({
             }
           }}
           rows={memo ? 4 : 3}
-          autoFocus={Boolean(memo)}
+          autoFocus={autoFocus || Boolean(memo)}
           placeholder="いま気になっていることは？  #タグ で分類できます"
           aria-label="メモ"
           className="field-sizing-content min-h-20 w-full resize-none bg-transparent pt-2 text-[15px] leading-relaxed text-ink outline-none placeholder:text-pewter"
@@ -112,7 +122,7 @@ export function MemoComposer({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2 border-t border-dove/60 pt-3">
-          <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+          <div className="flex min-w-0 flex-1 [scrollbar-width:none] gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden">
             {suggestions.slice(0, 8).map((tag) => (
               <button
                 key={tag}
