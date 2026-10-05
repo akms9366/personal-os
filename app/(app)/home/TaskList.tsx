@@ -13,6 +13,9 @@ import type { TaskStatus } from "@/lib/domain/task";
 import {
   dangerButtonClass,
   emptyClass,
+  errorTextClass,
+  listCardClass,
+  listRowClass,
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/components/ui/styles";
@@ -42,9 +45,9 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 const STATUS_OPTIONS: TaskStatus[] = ["todo", "doing", "hold", "done"];
 
 const LEVEL_BADGE: Record<number, string> = {
-  3: "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900",
-  2: "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100",
-  1: "border border-zinc-300 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400",
+  3: "bg-ink text-paper",
+  2: "bg-paper text-steel ring-1 ring-dove",
+  1: "text-pewter ring-1 ring-dove",
 };
 
 function LevelBadge({ label, level }: { label: string; level: number | null }) {
@@ -53,7 +56,7 @@ function LevelBadge({ label, level }: { label: string; level: number | null }) {
   }
   return (
     <span
-      className={`rounded px-1.5 py-0.5 text-[11px] leading-none ${LEVEL_BADGE[level]}`}
+      className={`rounded-full px-2 py-0.5 font-mono text-[10px] leading-4 ${LEVEL_BADGE[level]}`}
     >
       {label}
       {level}
@@ -82,7 +85,7 @@ function TaskEditForm({
   );
 
   return (
-    <form action={formAction} className="flex flex-col gap-3 pt-3">
+    <form action={formAction} className="flex flex-col gap-4 pt-4">
       <input type="hidden" name="taskId" value={task.id} />
       <TaskFields
         showNote
@@ -96,11 +99,7 @@ function TaskEditForm({
         }}
       />
       <div className="flex items-center justify-end gap-2">
-        {state.error ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
-        ) : null}
+        {state.error ? <p className={errorTextClass}>{state.error}</p> : null}
         <button type="button" onClick={onDone} className={secondaryButtonClass}>
           キャンセル
         </button>
@@ -145,7 +144,7 @@ function TaskRow({ task }: { task: TaskView }) {
   const done = task.status === "done";
 
   return (
-    <li className="rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800">
+    <li className={listRowClass}>
       <div className="flex items-start justify-between gap-3">
         <button
           type="button"
@@ -154,19 +153,13 @@ function TaskRow({ task }: { task: TaskView }) {
           aria-expanded={editing}
         >
           <span
-            className={`text-sm ${done ? "text-zinc-400 line-through" : "text-zinc-900 dark:text-zinc-50"}`}
+            className={`text-sm ${done ? "text-pewter line-through" : "text-ink"}`}
           >
             {task.title}
           </span>
-          <span className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-fog">
             {task.dueLabel ? (
-              <span
-                className={
-                  task.overdue && !done
-                    ? "font-medium text-red-600 dark:text-red-400"
-                    : ""
-                }
-              >
+              <span className={task.overdue && !done ? "text-danger" : ""}>
                 {task.dueLabel}
               </span>
             ) : (
@@ -181,7 +174,7 @@ function TaskRow({ task }: { task: TaskView }) {
           disabled={pending}
           onChange={(event) => handleStatusChange(event.target.value)}
           aria-label="状態"
-          className="rounded-md border border-zinc-300 bg-transparent px-2 py-1 text-sm text-zinc-900 outline-none disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50"
+          className="shrink-0 cursor-pointer rounded-full bg-paper px-3 py-1 text-xs font-medium text-ink ring-1 ring-dove outline-none hover:ring-pewter disabled:opacity-60"
         >
           {STATUS_OPTIONS.map((status) => (
             <option key={status} value={status}>
@@ -194,7 +187,7 @@ function TaskRow({ task }: { task: TaskView }) {
       {editing ? (
         <>
           <TaskEditForm task={task} onDone={() => setEditing(false)} />
-          <div className="flex justify-start pt-1">
+          <div className="flex justify-start pt-2">
             <button
               type="button"
               onClick={handleDelete}
@@ -222,7 +215,7 @@ export function TaskList({
   }
 
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className={listCardClass}>
       {tasks.map((task) => (
         <TaskRow key={task.id} task={task} />
       ))}

@@ -1,4 +1,9 @@
 import type { CalendarEventOccurrence } from "@/lib/calendar/ics";
+import {
+  errorNoticeClass,
+  listCardClass,
+  listRowClass,
+} from "@/components/ui/styles";
 
 function formatTime(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -18,7 +23,7 @@ export function TodayEvents({
 }) {
   if (!connected) {
     return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+      <p className="text-sm text-fog">
         カレンダーは未接続です（Settings の Connections で接続できます）。
       </p>
     );
@@ -26,33 +31,29 @@ export function TodayEvents({
 
   if (error) {
     return (
-      <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+      <p className={errorNoticeClass}>
         同期に失敗しました（{error}）。今日の予定は取得できていません。
       </p>
     );
   }
 
   if (events.length === 0) {
-    return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        今日の予定はありません。
-      </p>
-    );
+    return <p className="text-sm text-fog">今日の予定はありません。</p>;
   }
 
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className={listCardClass}>
       {events.map((event) => (
         <li
           key={event.occurrenceKey}
-          className="flex items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
+          className={`flex items-baseline gap-4 ${listRowClass}`}
         >
-          <span className="w-24 shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-            {event.allDay ? "終日" : `${formatTime(event.start)}–${formatTime(event.end)}`}
+          <span className="w-24 shrink-0 font-mono text-xs text-fog tabular-nums">
+            {event.allDay
+              ? "終日"
+              : `${formatTime(event.start)}–${formatTime(event.end)}`}
           </span>
-          <span className="text-sm text-zinc-900 dark:text-zinc-50">
-            {event.summary}
-          </span>
+          <span className="min-w-0 text-sm text-ink">{event.summary}</span>
         </li>
       ))}
     </ul>

@@ -31,7 +31,7 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
 
   if (points.length < 2) {
     return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+      <p className="text-sm text-fog">
         2件以上記録するとグラフが表示されます。
       </p>
     );
@@ -77,7 +77,7 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
   const showDots = points.length <= 40;
 
   return (
-    <div className="relative text-zinc-900 dark:text-zinc-100">
+    <div className="relative text-ink">
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="h-auto w-full"
@@ -91,7 +91,7 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
               x2={WIDTH - PAD.right}
               y1={y(tick)}
               y2={y(tick)}
-              className="stroke-zinc-200 dark:stroke-zinc-800"
+              className="stroke-dove/70"
               strokeWidth={1}
             />
             <text
@@ -99,7 +99,7 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
               y={y(tick)}
               textAnchor="end"
               dominantBaseline="middle"
-              className="fill-zinc-500 text-[11px] dark:fill-zinc-400"
+              className="fill-fog font-mono text-[10px]"
             >
               {tick}
             </text>
@@ -108,7 +108,7 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
         <text
           x={PAD.left}
           y={HEIGHT - 6}
-          className="fill-zinc-500 text-[11px] dark:fill-zinc-400"
+          className="fill-fog font-mono text-[10px]"
         >
           {points[0].label}
         </text>
@@ -116,16 +116,21 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
           x={WIDTH - PAD.right}
           y={HEIGHT - 6}
           textAnchor="end"
-          className="fill-zinc-500 text-[11px] dark:fill-zinc-400"
+          className="fill-fog font-mono text-[10px]"
         >
           {points[points.length - 1].label}
         </text>
 
         <path
+          d={`${path} L${x(maxT).toFixed(1)},${HEIGHT - PAD.bottom} L${x(minT).toFixed(1)},${HEIGHT - PAD.bottom} Z`}
+          fill="currentColor"
+          opacity={0.05}
+        />
+        <path
           d={path}
           fill="none"
           stroke="currentColor"
-          strokeWidth={2}
+          strokeWidth={1.5}
           strokeLinejoin="round"
           strokeLinecap="round"
         />
@@ -135,7 +140,7 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
                 key={p.date}
                 cx={x(times[i])}
                 cy={y(p.weightKg)}
-                r={2.5}
+                r={2}
                 fill="currentColor"
               />
             ))
@@ -148,7 +153,7 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
               x2={x(times[hover])}
               y1={PAD.top}
               y2={HEIGHT - PAD.bottom}
-              className="stroke-zinc-400 dark:stroke-zinc-500"
+              className="stroke-pewter"
               strokeWidth={1}
             />
             <circle
@@ -156,7 +161,7 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
               cy={y(active.weightKg)}
               r={5}
               fill="currentColor"
-              className="stroke-white dark:stroke-zinc-950"
+              className="stroke-paper"
               strokeWidth={2}
             />
           </g>
@@ -175,15 +180,15 @@ export function WeightChart({ points }: { points: WeightPoint[] }) {
       </svg>
       {active && hover !== null ? (
         <div
-          className={`pointer-events-none absolute top-0 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs whitespace-nowrap shadow-sm dark:border-zinc-700 dark:bg-zinc-900 ${
+          className={`pointer-events-none absolute top-0 rounded-lg bg-paper px-2.5 py-1.5 text-xs whitespace-nowrap shadow-float ${
             hover > points.length / 2 ? "-translate-x-full" : ""
           }`}
           style={{ left: `${(x(times[hover]) / WIDTH) * 100}%` }}
         >
-          <span className="text-zinc-500 dark:text-zinc-400">
-            {active.label}
-          </span>{" "}
-          <span className="font-semibold">{active.weightKg.toFixed(1)} kg</span>
+          <span className="font-mono text-fog">{active.label}</span>{" "}
+          <span className="font-medium tabular-nums">
+            {active.weightKg.toFixed(1)} kg
+          </span>
         </div>
       ) : null}
     </div>

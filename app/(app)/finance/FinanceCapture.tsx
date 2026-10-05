@@ -6,10 +6,14 @@ import { extractFinanceAction, saveFinanceDraftsAction } from "./actions";
 import { DraftFields, emptyDraft } from "./DraftFields";
 import type { FinanceDraft } from "@/lib/domain/finance";
 import {
+  aiBadgeClass,
   dangerButtonClass,
-  inputClass,
+  errorTextClass,
+  noticeClass,
   primaryButtonClass,
   secondaryButtonClass,
+  successTextClass,
+  textareaClass,
 } from "@/components/ui/styles";
 
 const MAX_IMAGE_EDGE = 1568;
@@ -121,22 +125,23 @@ export function FinanceCapture({ today }: { today: string }) {
 
   if (drafts) {
     return (
-      <div className="flex flex-col gap-3">
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {source === "ai"
-            ? "AI の下書きです。内容を確認・修正してから保存してください。"
-            : "記録を入力して保存してください。"}
+      <div className="flex flex-col gap-4">
+        <p className="flex items-center gap-2 text-xs text-fog">
+          {source === "ai" ? (
+            <>
+              <span className={aiBadgeClass}>AI 下書き</span>
+              内容を確認・修正してから保存してください（未保存）。
+            </>
+          ) : (
+            "記録を入力して保存してください。"
+          )}
         </p>
-        {note ? (
-          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-            {note}
-          </p>
-        ) : null}
+        {note ? <p className={noticeClass}>{note}</p> : null}
         <ul className="flex flex-col gap-3">
           {drafts.map((draft, index) => (
             <li
               key={index}
-              className="flex flex-col gap-2 rounded-md border border-zinc-200 p-3 dark:border-zinc-800"
+              className="flex flex-col gap-3 rounded-2xl bg-paper p-4 ring-1 ring-dove"
             >
               <DraftFields
                 draft={draft}
@@ -160,9 +165,7 @@ export function FinanceCapture({ today }: { today: string }) {
         </ul>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {error ? (
-            <p className="mr-auto text-sm text-red-600 dark:text-red-400">
-              {error}
-            </p>
+            <p className={`mr-auto ${errorTextClass}`}>{error}</p>
           ) : null}
           <button
             type="button"
@@ -206,7 +209,7 @@ export function FinanceCapture({ today }: { today: string }) {
           "例: 昨日スーパーで3,240円 カード払い\n今日ランチ 980円、電車 420円\n10/25 給料 285,000円"
         }
         aria-label="記録したい内容"
-        className={inputClass}
+        className={textareaClass}
       />
       <div className="flex flex-wrap items-center gap-2">
         <label className={`${secondaryButtonClass} cursor-pointer`}>
@@ -220,7 +223,7 @@ export function FinanceCapture({ today }: { today: string }) {
           />
         </label>
         {file ? (
-          <span className="flex items-center gap-1 text-xs text-zinc-500">
+          <span className="flex items-center gap-1 font-mono text-xs text-fog">
             {file.name}
             <button
               type="button"
@@ -230,7 +233,7 @@ export function FinanceCapture({ today }: { today: string }) {
                   fileRef.current.value = "";
                 }
               }}
-              className="px-1 hover:text-zinc-900 dark:hover:text-zinc-100"
+              className="px-1 hover:text-ink"
               aria-label="写真を外す"
             >
               ×
@@ -255,12 +258,8 @@ export function FinanceCapture({ today }: { today: string }) {
           </button>
         </div>
       </div>
-      {error ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-      ) : null}
-      {message ? (
-        <p className="text-sm text-green-700 dark:text-green-400">{message}</p>
-      ) : null}
+      {error ? <p className={errorTextClass}>{error}</p> : null}
+      {message ? <p className={successTextClass}>{message}</p> : null}
     </div>
   );
 }

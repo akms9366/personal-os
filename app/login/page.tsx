@@ -21,11 +21,25 @@ export default async function LoginPage({
   const { next } = await searchParams;
 
   return (
-    <main className="flex min-h-full flex-1 flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-        Personal OS
-      </h1>
-      <LoginForm next={next && next.startsWith("/") ? next : "/home"} />
+    <main className="relative flex min-h-full flex-1 flex-col items-center justify-center overflow-hidden px-4 py-16">
+      {/* 装飾: 背後でぼかした暖色のオーブ（機能を持たない雰囲気づけ） */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-[60%] rounded-full bg-[radial-gradient(circle,#ffa888_0%,rgba(255,136,104,0)_70%)] opacity-40 blur-[64px]"
+      />
+
+      <div className="relative flex w-full max-w-sm flex-col items-center gap-10">
+        <div className="flex flex-col items-center gap-5 text-center">
+          <span aria-hidden className="h-6 w-3 rounded-full bg-ink" />
+          <h1 className="text-5xl leading-none font-normal tracking-[-0.025em] text-ink">
+            Personal OS
+          </h1>
+          <p className="font-mono text-xs text-fog">
+            single-user · private by default
+          </p>
+        </div>
+        <LoginForm next={next && next.startsWith("/") ? next : "/home"} />
+      </div>
     </main>
   );
 }

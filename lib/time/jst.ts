@@ -79,3 +79,33 @@ export function formatDateLabel(date: string): string {
 export function formatDateTimeLabel(date: Date): string {
   return `${formatDateLabel(toJstDateString(date))} ${toJstTimeString(date)}`;
 }
+
+/// Date → "10月5日" と "日曜日"（JST）。Home の見出し用。
+export function formatHeadlineDateJst(now: Date = new Date()): {
+  date: string;
+  weekday: string;
+} {
+  const today = todayJst(now);
+  const [, month, day] = today.split("-").map(Number);
+  const weekday = new Date(`${today}T12:00:00${JST_OFFSET}`).getUTCDay();
+  return { date: `${month}月${day}日`, weekday: `${WEEKDAYS[weekday]}曜日` };
+}
+
+/// タイムライン用の相対時刻（JST）: "たった今" / "5分" / "3時間" / "10月4日" / "2025年10月4日"。
+export function formatRelativeJst(date: Date, now: Date = new Date()): string {
+  const minutes = Math.floor((now.getTime() - date.getTime()) / 60000);
+  if (minutes < 1) {
+    return "たった今";
+  }
+  if (minutes < 60) {
+    return `${minutes}分`;
+  }
+  if (minutes < 24 * 60) {
+    return `${Math.floor(minutes / 60)}時間`;
+  }
+  const [year, month, day] = toJstDateString(date).split("-").map(Number);
+  const currentYear = Number(todayJst(now).slice(0, 4));
+  return year === currentYear
+    ? `${month}月${day}日`
+    : `${year}年${month}月${day}日`;
+}

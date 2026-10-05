@@ -20,7 +20,7 @@ export function DraftFields({
     onChange({ ...draft, [key]: value });
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <input
         type="date"
         value={draft.date}

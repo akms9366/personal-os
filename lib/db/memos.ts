@@ -1,8 +1,9 @@
 import { prisma } from "./client";
+import { MEMO_TAG_MAX_LENGTH } from "../domain/memo";
 
-// 気になるメモ（Memo）とタグ（Tag）の CRUD。Entry（不変の原情報）と違い通常どおり編集できる。
+// メモ（Memo）とタグ（Tag）の CRUD。Entry（不変の原情報）と違い通常どおり編集できる。
 
-export const TAG_MAX_LENGTH = 30;
+export const TAG_MAX_LENGTH = MEMO_TAG_MAX_LENGTH;
 
 /// タグ入力（改行・カンマ・読点区切り、先頭 # は除去）を正規化し、重複を除く。
 export function normalizeTagNames(raw: string): string[] {
@@ -29,8 +30,13 @@ export async function listMemos(tagName?: string) {
   return prisma.memo.findMany({
     where: tagName ? { tags: { some: { name: tagName } } } : undefined,
     include: { tags: { orderBy: { name: "asc" } } },
-    orderBy: { updatedAt: "desc" },
+    // タイムライン表示のため投稿（作成）順。編集しても並びは動かさない。
+    orderBy: { createdAt: "desc" },
   });
+}
+
+export async function countMemos() {
+  return prisma.memo.count();
 }
 
 export async function createMemo(params: MemoParams) {

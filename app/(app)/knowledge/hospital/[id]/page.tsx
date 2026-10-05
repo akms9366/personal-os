@@ -28,10 +28,10 @@ export default async function HospitalDetailPage({
   return (
     <SpaceScaffold space={space}>
       <KnowledgeTabs />
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-10">
         <Link
           href="/knowledge/hospital"
-          className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+          className="self-start font-mono text-xs text-fog transition hover:text-ink"
         >
           ‹ 通院先一覧
         </Link>
@@ -47,7 +47,7 @@ export default async function HospitalDetailPage({
         />
 
         <section className={cardClass}>
-          <h3 className={`mb-3 ${sectionTitleClass}`}>診察記録を追加</h3>
+          <h3 className={`mb-5 ${sectionTitleClass}`}>診察記録を追加</h3>
           <VisitForm
             hospitalId={hospital.id}
             visit={{
@@ -60,7 +60,7 @@ export default async function HospitalDetailPage({
           />
         </section>
 
-        <section className="flex flex-col gap-3">
+        <section className="flex flex-col gap-4">
           <h3 className={sectionTitleClass}>
             診察記録（{hospital.visits.length}件）
           </h3>

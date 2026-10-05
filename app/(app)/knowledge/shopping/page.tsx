@@ -17,7 +17,7 @@ export default async function ShoppingPage() {
   return (
     <SpaceScaffold space={space}>
       <KnowledgeTabs />
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h2 className={sectionTitleClass}>買い物メモ</h2>
           <CsvLink kind="shopping" />

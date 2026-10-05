@@ -38,17 +38,17 @@ export function HospitalHeader({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+        <h2 className="text-3xl leading-tight font-normal tracking-[-0.025em] text-ink">
           {hospital.name}
           {hospital.department ? (
-            <span className="ml-2 text-sm font-normal text-zinc-500">
+            <span className="ml-3 align-middle text-sm text-fog">
               {hospital.department}
             </span>
           ) : null}
         </h2>
-        <div className="flex shrink-0 gap-1">
+        <div className="flex shrink-0 gap-1 pt-1">
           <button
             type="button"
             onClick={() => setEditing(true)}
@@ -67,7 +67,7 @@ export function HospitalHeader({
         </div>
       </div>
       {hospital.note ? (
-        <p className="text-sm whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm leading-relaxed whitespace-pre-wrap text-steel">
           {hospital.note}
         </p>
       ) : null}

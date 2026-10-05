@@ -6,7 +6,7 @@ import {
   TASK_LEVELS,
   TASK_LEVEL_LABELS,
 } from "@/lib/domain/task";
-import { inputClass, labelClass } from "@/components/ui/styles";
+import { inputClass, labelClass, textareaClass } from "@/components/ui/styles";
 
 export interface TaskFieldValues {
   title: string;
@@ -29,11 +29,9 @@ function LevelPicker({
   defaultValue: number;
 }) {
   return (
-    <fieldset className="flex flex-col gap-1">
-      <legend className="mb-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-        {label}
-      </legend>
-      <div className="flex overflow-hidden rounded-md border border-zinc-300 dark:border-zinc-700">
+    <fieldset className="flex flex-col gap-1.5">
+      <legend className="mb-1.5 text-xs font-medium text-steel">{label}</legend>
+      <div className="flex rounded-full bg-paper p-0.5 ring-1 ring-dove">
         {TASK_LEVELS.map((level) => (
           <label key={level} className="flex-1 cursor-pointer">
             <input
@@ -43,9 +41,9 @@ function LevelPicker({
               defaultChecked={defaultValue === level}
               className="peer sr-only"
             />
-            <span className="block px-2 py-1.5 text-center text-sm text-zinc-600 peer-checked:bg-zinc-900 peer-checked:text-white peer-focus-visible:ring-2 dark:text-zinc-400 dark:peer-checked:bg-zinc-100 dark:peer-checked:text-zinc-900">
-              {level}
-              <span className="ml-0.5 text-xs">{TASK_LEVEL_LABELS[level]}</span>
+            <span className="block rounded-full px-2 py-1.5 text-center text-sm text-fog transition peer-checked:bg-ink peer-checked:text-paper peer-focus-visible:ring-2 peer-focus-visible:ring-pewter hover:text-ink peer-checked:hover:text-paper">
+              <span className="font-mono">{level}</span>
+              <span className="ml-1 text-xs">{TASK_LEVEL_LABELS[level]}</span>
             </span>
           </label>
         ))}
@@ -71,7 +69,7 @@ export function TaskFields({
   );
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <input
         name="title"
         type="text"
@@ -142,7 +140,7 @@ export function TaskFields({
             name="note"
             rows={2}
             defaultValue={defaults.note}
-            className={inputClass}
+            className={textareaClass}
           />
         </label>
       ) : null}

@@ -2,6 +2,11 @@ import type { ReactNode } from "react";
 import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { getSpace } from "@/lib/navigation/spaces";
 import { getSettings } from "@/lib/settings/store";
+import {
+  cardClass,
+  metaClass,
+  sectionTitleClass,
+} from "@/components/ui/styles";
 import { AiSettingsForm } from "./AiSettingsForm";
 import { CalendarConnectionForm } from "./CalendarConnectionForm";
 
@@ -10,26 +15,25 @@ import { CalendarConnectionForm } from "./CalendarConnectionForm";
 const space = getSpace("settings")!;
 
 function SettingsSection({
+  index,
   title,
   children,
 }: {
+  index: number;
   title: string;
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-      <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-        {title}
-      </h2>
+    <section className={cardClass}>
+      <p className={`mb-2 ${metaClass}`}>{String(index).padStart(2, "0")}</p>
+      <h2 className={`mb-5 ${sectionTitleClass}`}>{title}</h2>
       {children}
     </section>
   );
 }
 
 function ComingSoon({ note }: { note: string }) {
-  return (
-    <p className="text-sm text-zinc-500 dark:text-zinc-400">{note}</p>
-  );
+  return <p className="text-sm text-fog">{note}</p>;
 }
 
 export default async function SettingsPage() {
@@ -38,11 +42,11 @@ export default async function SettingsPage() {
   return (
     <SpaceScaffold space={space}>
       <div className="flex flex-col gap-4">
-        <SettingsSection title="Intent & Preferences">
+        <SettingsSection index={1} title="Intent & Preferences">
           <ComingSoon note="目的・優先度・表示設定は今後実装します（後続 Issue）。" />
         </SettingsSection>
 
-        <SettingsSection title="Connections">
+        <SettingsSection index={2} title="Connections">
           <CalendarConnectionForm
             connected={settings.calendarConnected}
             lastSyncAt={settings.calendarLastSyncAt}
@@ -50,14 +54,14 @@ export default async function SettingsPage() {
           />
         </SettingsSection>
 
-        <SettingsSection title="AI & Automation">
+        <SettingsSection index={3} title="AI & Automation">
           <AiSettingsForm
             aiModel={settings.aiModel}
             aiApiKeyMasked={settings.aiApiKeyMasked}
           />
         </SettingsSection>
 
-        <SettingsSection title="Data & Privacy">
+        <SettingsSection index={4} title="Data & Privacy">
           <ComingSoon note="データのエクスポート・削除は今後実装します。" />
         </SettingsSection>
       </div>

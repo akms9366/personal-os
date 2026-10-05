@@ -3,10 +3,12 @@
 import { useActionState, useState } from "react";
 import { saveVisitAction, type HospitalActionState } from "../actions";
 import {
+  errorTextClass,
   inputClass,
   labelClass,
   primaryButtonClass,
   secondaryButtonClass,
+  textareaClass,
 } from "@/components/ui/styles";
 
 export interface VisitFormValues {
@@ -48,12 +50,12 @@ export function VisitForm({
   );
 
   return (
-    <form key={formKey} action={formAction} className="flex flex-col gap-3">
+    <form key={formKey} action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="hospitalId" value={hospitalId} />
       {visit.id ? (
         <input type="hidden" name="visitId" value={visit.id} />
       ) : null}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         <label className={labelClass}>
           受診日
           <input
@@ -80,7 +82,7 @@ export function VisitForm({
           name="condition"
           rows={3}
           defaultValue={visit.condition}
-          className={inputClass}
+          className={textareaClass}
         />
       </label>
       <label className={labelClass}>
@@ -89,7 +91,7 @@ export function VisitForm({
           name="doctorNotes"
           rows={3}
           defaultValue={visit.doctorNotes}
-          className={inputClass}
+          className={textareaClass}
         />
       </label>
       <label className={labelClass}>
@@ -98,15 +100,11 @@ export function VisitForm({
           name="prescription"
           rows={3}
           defaultValue={visit.prescription}
-          className={inputClass}
+          className={textareaClass}
         />
       </label>
       <div className="flex items-center justify-end gap-2">
-        {state.error ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
-        ) : null}
+        {state.error ? <p className={errorTextClass}>{state.error}</p> : null}
         {onDone ? (
           <button
             type="button"

@@ -10,6 +10,7 @@ import {
   updateMemo,
   type MemoParams,
 } from "@/lib/db/memos";
+import { parseMemoText } from "@/lib/domain/memo";
 
 export interface MemoActionState {
   success?: boolean;
@@ -19,24 +20,21 @@ export interface MemoActionState {
 const PATH = "/knowledge/memos";
 
 function readMemoForm(formData: FormData): MemoParams | { error: string } {
-  const title = String(formData.get("title") ?? "").trim();
-  if (title.length === 0) {
-    return { error: "タイトルを入力してください。" };
+  const parsed = parseMemoText(String(formData.get("text") ?? ""));
+  if (!parsed) {
+    return { error: "メモを入力してください。" };
   }
-  const body = String(formData.get("body") ?? "").trim();
-  const url = String(formData.get("url") ?? "").trim();
-  if (url.length > 0 && !/^https?:\/\//i.test(url)) {
-    return { error: "URL は http(s):// から入力してください。" };
-  }
+  // タグ = 本文中の #ハッシュタグ ＋ 本文に書かれていない既存タグ（編集時に保持するもの）。
+  const extraTags = String(formData.get("tags") ?? "");
   return {
-    title,
-    body: body || null,
-    url: url || null,
-    tagNames: normalizeTagNames(String(formData.get("tags") ?? "")),
+    title: parsed.title,
+    body: parsed.body,
+    url: parsed.url,
+    tagNames: normalizeTagNames([...parsed.hashtags, extraTags].join("\n")),
   };
 }
 
-export async function saveMemoAction(
+export async function postMemoAction(
   _prevState: MemoActionState,
   formData: FormData,
 ): Promise<MemoActionState> {
