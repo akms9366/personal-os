@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { CsvLink } from "@/components/ui/CsvLink";
-import { cardClass, sectionTitleClass } from "@/components/ui/styles";
+import {
+  cardClass,
+  sectionTitleClass,
+  tabPillClass,
+} from "@/components/ui/styles";
 import { getSpace } from "@/lib/navigation/spaces";
 import { listMemos, listTagsWithCount } from "@/lib/db/memos";
 import { formatDateLabel, toJstDateString } from "@/lib/time/jst";
@@ -29,24 +33,21 @@ export default async function MemosPage({
   return (
     <SpaceScaffold space={space}>
       <KnowledgeTabs />
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-12">
         <section className={cardClass}>
-          <h2 className={`mb-3 ${sectionTitleClass}`}>気になるメモを追加</h2>
+          <h2 className={`mb-5 ${sectionTitleClass}`}>気になるメモを追加</h2>
           <MemoForm tagSuggestions={tagNames} />
         </section>
 
-        <section className="flex flex-col gap-3">
+        <section className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-2">
             <h2 className={sectionTitleClass}>
-              メモ{" "}
-              {tag ? (
-                <span className="font-normal text-zinc-500">#{tag}</span>
-              ) : null}
+              メモ {tag ? <span className="text-fog">#{tag}</span> : null}
             </h2>
             <CsvLink kind="memos" />
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             <TagFilterLink label="すべて" active={!tag} />
             {tags.map((t) => (
               <TagFilterLink
@@ -75,7 +76,7 @@ export default async function MemosPage({
           <summary className={`cursor-pointer ${sectionTitleClass}`}>
             タグを編集
           </summary>
-          <div className="pt-3">
+          <div className="pt-4">
             <TagManager
               tags={tags.map((t) => ({
                 id: t.id,
@@ -106,11 +107,7 @@ function TagFilterLink({
           ? `/knowledge/memos?tag=${encodeURIComponent(tag)}`
           : "/knowledge/memos"
       }
-      className={`rounded-full px-2.5 py-0.5 text-xs ${
-        active
-          ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-          : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
-      }`}
+      className={tabPillClass(active)}
     >
       {label}
     </Link>

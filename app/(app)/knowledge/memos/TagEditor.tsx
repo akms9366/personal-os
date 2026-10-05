@@ -54,14 +54,14 @@ export function TagEditor({
         {tags.map((tag) => (
           <span
             key={tag}
-            className="flex items-center gap-1 rounded-full bg-zinc-200 py-0.5 pr-1 pl-2.5 text-xs text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100"
+            className="flex items-center gap-1 rounded-full bg-ink py-0.5 pr-1 pl-2.5 text-xs text-paper"
           >
             #{tag}
             <button
               type="button"
               onClick={() => toggle(tag)}
               aria-label={`${tag} を外す`}
-              className="rounded-full px-1 text-zinc-500 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+              className="rounded-full px-1 text-paper/60 hover:text-paper"
             >
               ×
             </button>
@@ -85,7 +85,7 @@ export function TagEditor({
               key={name}
               type="button"
               onClick={() => toggle(name)}
-              className="rounded-full border border-dashed border-zinc-300 px-2.5 py-0.5 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-800 dark:border-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-100"
+              className="rounded-full border border-dashed border-dove px-2.5 py-0.5 text-xs text-fog transition hover:border-pewter hover:text-ink"
             >
               +#{name}
             </button>

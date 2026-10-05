@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { createTaskAction, type TaskActionState } from "./actions";
 import { TaskFields } from "./TaskFields";
-import { primaryButtonClass } from "@/components/ui/styles";
+import { errorTextClass, primaryButtonClass } from "@/components/ui/styles";
 
 const initialState: TaskActionState = {};
 
@@ -25,7 +25,7 @@ export function TaskCreateForm({ today }: { today: string }) {
     <form
       key={formKey}
       action={formAction}
-      className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+      className="flex flex-col gap-4 rounded-2xl bg-cream p-5"
     >
       <TaskFields
         defaults={{
@@ -38,11 +38,7 @@ export function TaskCreateForm({ today }: { today: string }) {
         }}
       />
       <div className="flex items-center justify-end gap-3">
-        {state.error ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
-        ) : null}
+        {state.error ? <p className={errorTextClass}>{state.error}</p> : null}
         <button type="submit" disabled={pending} className={primaryButtonClass}>
           {pending ? "追加中..." : "追加"}
         </button>

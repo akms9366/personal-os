@@ -10,6 +10,8 @@ import {
 import {
   dangerButtonClass,
   emptyClass,
+  eyebrowClass,
+  listCardClass,
   secondaryButtonClass,
 } from "@/components/ui/styles";
 
@@ -67,21 +69,23 @@ export function ShoppingList({ items }: { items: ShoppingItemView[] }) {
   const renderItem = (item: ShoppingItemView) => (
     <li
       key={item.id}
-      className="flex items-center gap-3 border-t border-zinc-200 py-2 first:border-t-0 dark:border-zinc-800"
+      className="flex items-center gap-3 py-1.5 pr-2 pl-4 sm:pl-5"
     >
-      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-1.5">
         <input
           type="checkbox"
           checked={item.checked}
           onChange={() => toggle(item)}
-          className="size-5 shrink-0 accent-zinc-900 dark:accent-zinc-100"
+          className="size-5 shrink-0 accent-ink"
         />
         <span
-          className={`text-sm ${item.checked ? "text-zinc-400 line-through" : "text-zinc-900 dark:text-zinc-50"}`}
+          className={`text-sm ${item.checked ? "text-pewter line-through" : "text-ink"}`}
         >
           {item.name}
           {item.quantity ? (
-            <span className="ml-2 text-xs text-zinc-500">{item.quantity}</span>
+            <span className="ml-2 font-mono text-xs text-fog">
+              {item.quantity}
+            </span>
           ) : null}
         </span>
       </label>
@@ -98,19 +102,17 @@ export function ShoppingList({ items }: { items: ShoppingItemView[] }) {
   );
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
-          残り {remaining.length} 件
-        </p>
-        <ul>{remaining.map(renderItem)}</ul>
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-3">
+        <p className={eyebrowClass}>残り {remaining.length} 件</p>
+        {remaining.length > 0 ? (
+          <ul className={listCardClass}>{remaining.map(renderItem)}</ul>
+        ) : null}
       </div>
       {checked.length > 0 ? (
-        <div>
-          <div className="mb-1 flex items-center justify-between">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              チェック済み {checked.length} 件
-            </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <p className={eyebrowClass}>チェック済み {checked.length} 件</p>
             <button
               type="button"
               onClick={clearChecked}
@@ -120,7 +122,7 @@ export function ShoppingList({ items }: { items: ShoppingItemView[] }) {
               チェック済みを削除
             </button>
           </div>
-          <ul>{checked.map(renderItem)}</ul>
+          <ul className={listCardClass}>{checked.map(renderItem)}</ul>
         </div>
       ) : null}
     </div>

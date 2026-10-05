@@ -29,23 +29,23 @@ function Row({ row }: { row: WeightRow }) {
   }
 
   return (
-    <tr className="border-t border-zinc-200 dark:border-zinc-800">
-      <td className="py-2 pr-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
+    <tr className="border-t border-dove/60">
+      <td className="py-2.5 pr-3 pl-4 font-mono text-xs whitespace-nowrap text-fog sm:pl-5">
         {row.label}
       </td>
-      <td className="py-2 pr-3 text-right font-medium whitespace-nowrap tabular-nums">
+      <td className="py-2.5 pr-3 text-right font-medium whitespace-nowrap tabular-nums">
         {row.weightKg.toFixed(1)} kg
       </td>
-      <td className="py-2 pr-3 text-right whitespace-nowrap text-zinc-500 tabular-nums">
+      <td className="py-2.5 pr-3 text-right whitespace-nowrap text-fog tabular-nums">
         {row.diff === null
           ? ""
           : `${row.diff > 0 ? "+" : row.diff < 0 ? "−" : "±"}${Math.abs(row.diff).toFixed(1)}`}
       </td>
-      <td className="py-2 pr-3 text-right whitespace-nowrap text-zinc-500 tabular-nums">
+      <td className="py-2.5 pr-3 text-right whitespace-nowrap text-fog tabular-nums">
         {row.bodyFatPct === null ? "" : `${row.bodyFatPct.toFixed(1)}%`}
       </td>
-      <td className="py-2 pr-3 text-zinc-500">{row.note}</td>
-      <td className="py-2 text-right">
+      <td className="py-2.5 pr-3 text-fog">{row.note}</td>
+      <td className="py-1.5 pr-2 text-right">
         <button
           type="button"
           onClick={handleDelete}
@@ -64,15 +64,15 @@ export function WeightList({ rows }: { rows: WeightRow[] }) {
     return <p className={emptyClass}>体重の記録はまだありません。</p>;
   }
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm text-zinc-900 dark:text-zinc-100">
+    <div className="overflow-x-auto rounded-2xl bg-cream">
+      <table className="w-full text-sm text-ink">
         <thead>
-          <tr className="text-left text-xs text-zinc-500 dark:text-zinc-400">
-            <th className="pb-1 font-medium">日付</th>
-            <th className="pb-1 text-right font-medium">体重</th>
-            <th className="pb-1 text-right font-medium">前回比</th>
-            <th className="pb-1 text-right font-medium">体脂肪</th>
-            <th className="pb-1 font-medium">メモ</th>
+          <tr className="text-left font-mono text-[11px] text-pewter">
+            <th className="pt-3 pb-2 pl-4 font-normal sm:pl-5">日付</th>
+            <th className="pt-3 pb-2 text-right font-normal">体重</th>
+            <th className="pt-3 pb-2 text-right font-normal">前回比</th>
+            <th className="pt-3 pb-2 text-right font-normal">体脂肪</th>
+            <th className="pt-3 pb-2 font-normal">メモ</th>
             <th />
           </tr>
         </thead>

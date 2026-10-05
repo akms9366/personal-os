@@ -8,7 +8,9 @@ import { MemoForm, type MemoFormValues } from "./MemoForm";
 import {
   dangerButtonClass,
   emptyClass,
-  secondaryButtonClass,
+  ghostButtonClass,
+  metaClass,
+  tagClass,
 } from "@/components/ui/styles";
 
 export interface MemoView extends MemoFormValues {
@@ -39,7 +41,7 @@ function MemoItem({
 
   if (editing) {
     return (
-      <li className="rounded-lg border border-zinc-300 p-3 dark:border-zinc-700">
+      <li className="rounded-2xl bg-cream p-5 ring-1 ring-dove">
         <MemoForm
           memo={memo}
           tagSuggestions={tagSuggestions}
@@ -50,14 +52,14 @@ function MemoItem({
   }
 
   return (
-    <li className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+    <li className="flex flex-col gap-4 rounded-2xl bg-cream p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+          <p className="text-base font-medium tracking-[-0.01em] text-ink">
             {memo.title}
           </p>
           {memo.body ? (
-            <p className="mt-1 text-sm whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
+            <p className="mt-1.5 text-sm leading-relaxed whitespace-pre-wrap text-steel">
               {memo.body}
             </p>
           ) : null}
@@ -66,15 +68,13 @@ function MemoItem({
               href={memo.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-1 block truncate text-xs text-blue-600 underline dark:text-blue-400"
+              className="mt-1.5 block truncate font-mono text-xs text-fog underline decoration-dove underline-offset-2 hover:text-ink hover:decoration-ink"
             >
               {memo.url}
             </a>
           ) : null}
         </div>
-        <span className="shrink-0 text-xs text-zinc-400">
-          {memo.updatedLabel}
-        </span>
+        <span className={`shrink-0 ${metaClass}`}>{memo.updatedLabel}</span>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-1.5">
@@ -82,7 +82,7 @@ function MemoItem({
             <Link
               key={tag}
               href={`/knowledge/memos?tag=${encodeURIComponent(tag)}`}
-              className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300"
+              className={tagClass}
             >
               #{tag}
             </Link>
@@ -92,7 +92,7 @@ function MemoItem({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className={secondaryButtonClass}
+            className={ghostButtonClass}
           >
             編集
           </button>
@@ -121,7 +121,7 @@ export function MemoList({
     return <p className={emptyClass}>メモはまだありません。</p>;
   }
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex flex-col gap-3">
       {memos.map((memo) => (
         <MemoItem key={memo.id} memo={memo} tagSuggestions={tagSuggestions} />
       ))}

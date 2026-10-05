@@ -10,8 +10,9 @@ export function CsvLink({
   return (
     <a
       href={`/export/${kind}`}
-      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[11px] text-fog ring-1 ring-dove transition hover:text-ink hover:ring-pewter"
     >
+      <span aria-hidden>↓</span>
       {label}
     </a>
   );

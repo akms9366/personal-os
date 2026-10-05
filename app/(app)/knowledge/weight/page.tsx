@@ -1,6 +1,10 @@
 import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { CsvLink } from "@/components/ui/CsvLink";
-import { cardClass, sectionTitleClass } from "@/components/ui/styles";
+import {
+  cardClass,
+  eyebrowClass,
+  sectionTitleClass,
+} from "@/components/ui/styles";
 import { getSpace } from "@/lib/navigation/spaces";
 import { listWeights } from "@/lib/db/weight";
 import { formatDateLabel, todayJst } from "@/lib/time/jst";
@@ -34,31 +38,34 @@ export default async function WeightPage() {
   return (
     <SpaceScaffold space={space}>
       <KnowledgeTabs />
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-12">
         <section className={cardClass}>
-          <h2 className={`mb-3 ${sectionTitleClass}`}>体重を記録</h2>
+          <h2 className={`mb-5 ${sectionTitleClass}`}>体重を記録</h2>
           <WeightForm today={todayJst()} />
         </section>
 
-        <section className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2 className={sectionTitleClass}>
-              体重の推移（直近{CHART_DAYS}日・kg）
-            </h2>
+        <section className="flex flex-col gap-4">
+          <div className="flex items-end justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <h2 className={sectionTitleClass}>体重の推移</h2>
+              <p className={eyebrowClass}>直近{CHART_DAYS}日 · kg</p>
+            </div>
             {latest ? (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                最新{" "}
-                <span className="text-lg font-semibold text-zinc-900 tabular-nums dark:text-zinc-50">
+              <p className="flex flex-col items-end gap-1">
+                <span className={eyebrowClass}>最新</span>
+                <span className="text-4xl leading-none font-normal tracking-[-0.025em] text-ink tabular-nums">
                   {latest.weightKg.toFixed(1)}
-                </span>{" "}
-                kg
+                  <span className="ml-1 text-sm tracking-normal text-fog">
+                    kg
+                  </span>
+                </span>
               </p>
             ) : null}
           </div>
           <WeightChart points={chartPoints} />
         </section>
 
-        <section className="flex flex-col gap-3">
+        <section className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className={sectionTitleClass}>記録</h2>
             <CsvLink kind="weight" />

@@ -2,7 +2,11 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { addShoppingItemsAction, type ShoppingActionState } from "./actions";
-import { inputClass, primaryButtonClass } from "@/components/ui/styles";
+import {
+  errorTextClass,
+  inputClass,
+  primaryButtonClass,
+} from "@/components/ui/styles";
 
 const initialState: ShoppingActionState = {};
 
@@ -40,9 +44,7 @@ export function ShoppingForm() {
           追加
         </button>
       </div>
-      {state.error ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
-      ) : null}
+      {state.error ? <p className={errorTextClass}>{state.error}</p> : null}
     </form>
   );
 }

@@ -3,10 +3,12 @@
 import { useActionState, useState } from "react";
 import { saveHospitalAction, type HospitalActionState } from "./actions";
 import {
+  errorTextClass,
   inputClass,
   labelClass,
   primaryButtonClass,
   secondaryButtonClass,
+  textareaClass,
 } from "@/components/ui/styles";
 
 export interface HospitalFormValues {
@@ -43,11 +45,11 @@ export function HospitalForm({
   );
 
   return (
-    <form key={formKey} action={formAction} className="flex flex-col gap-3">
+    <form key={formKey} action={formAction} className="flex flex-col gap-4">
       {hospital ? (
         <input type="hidden" name="hospitalId" value={hospital.id} />
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <label className={labelClass}>
           病院名
           <input
@@ -72,15 +74,11 @@ export function HospitalForm({
           name="note"
           rows={2}
           defaultValue={hospital?.note}
-          className={inputClass}
+          className={textareaClass}
         />
       </label>
       <div className="flex items-center justify-end gap-2">
-        {state.error ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
-        ) : null}
+        {state.error ? <p className={errorTextClass}>{state.error}</p> : null}
         {onDone ? (
           <button
             type="button"

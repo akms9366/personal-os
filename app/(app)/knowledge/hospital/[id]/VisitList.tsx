@@ -7,7 +7,8 @@ import { VisitForm, type VisitFormValues } from "./VisitForm";
 import {
   dangerButtonClass,
   emptyClass,
-  secondaryButtonClass,
+  ghostButtonClass,
+  metaClass,
 } from "@/components/ui/styles";
 
 export interface VisitView extends VisitFormValues {
@@ -22,10 +23,8 @@ function Field({ label, value }: { label: string; value: string }) {
   }
   return (
     <div>
-      <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-        {label}
-      </dt>
-      <dd className="mt-0.5 text-sm whitespace-pre-wrap text-zinc-900 dark:text-zinc-100">
+      <dt className={metaClass}>{label}</dt>
+      <dd className="mt-1 text-sm leading-relaxed whitespace-pre-wrap text-ink">
         {value}
       </dd>
     </div>
@@ -54,7 +53,7 @@ function VisitItem({
   }
 
   return (
-    <li className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+    <li className="rounded-2xl bg-cream p-5 sm:p-6">
       {editing ? (
         <VisitForm
           hospitalId={hospitalId}
@@ -62,12 +61,12 @@ function VisitItem({
           onDone={() => setEditing(false)}
         />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+            <p className="text-lg font-normal tracking-[-0.01em] text-ink">
               {visit.visitDateLabel}
               {visit.nextVisitLabel ? (
-                <span className="ml-2 text-xs font-normal text-zinc-500">
+                <span className="ml-3 font-mono text-[11px] text-fog">
                   次回 {visit.nextVisitLabel}
                 </span>
               ) : null}
@@ -76,7 +75,7 @@ function VisitItem({
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className={secondaryButtonClass}
+                className={ghostButtonClass}
               >
                 編集
               </button>
@@ -90,7 +89,7 @@ function VisitItem({
               </button>
             </div>
           </div>
-          <dl className="flex flex-col gap-3">
+          <dl className="flex flex-col gap-4">
             <Field label="自分の状況" value={visit.condition} />
             <Field label="医師とのやりとり" value={visit.doctorNotes} />
             <Field label="今後の処方" value={visit.prescription} />

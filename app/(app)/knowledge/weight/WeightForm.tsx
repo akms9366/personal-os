@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import { saveWeightAction, type WeightActionState } from "./actions";
 import {
+  errorTextClass,
   inputClass,
   labelClass,
   primaryButtonClass,
@@ -24,8 +25,8 @@ export function WeightForm({ today }: { today: string }) {
   }, [state]);
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <label className={`${labelClass} col-span-2 sm:col-span-1`}>
           日付
           <input
@@ -66,14 +67,10 @@ export function WeightForm({ today }: { today: string }) {
         <input name="note" className={inputClass} />
       </label>
       <div className="flex items-center justify-end gap-3">
-        <span className="mr-auto text-xs text-zinc-500 dark:text-zinc-400">
+        <span className="mr-auto text-xs text-fog">
           同じ日付で保存すると上書きします。
         </span>
-        {state.error ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
-        ) : null}
+        {state.error ? <p className={errorTextClass}>{state.error}</p> : null}
         <button type="submit" disabled={pending} className={primaryButtonClass}>
           {pending ? "保存中..." : "記録"}
         </button>

@@ -4,9 +4,11 @@ import { useActionState, useState } from "react";
 import { saveMemoAction, type MemoActionState } from "./actions";
 import { TagEditor } from "./TagEditor";
 import {
+  errorTextClass,
   inputClass,
   primaryButtonClass,
   secondaryButtonClass,
+  textareaClass,
 } from "@/components/ui/styles";
 
 export interface MemoFormValues {
@@ -47,7 +49,7 @@ export function MemoForm({
   );
 
   return (
-    <form key={formKey} action={formAction} className="flex flex-col gap-3">
+    <form key={formKey} action={formAction} className="flex flex-col gap-4">
       {memo?.id ? <input type="hidden" name="memoId" value={memo.id} /> : null}
       <input
         name="title"
@@ -63,7 +65,7 @@ export function MemoForm({
         defaultValue={memo?.body}
         placeholder="メモ（任意）"
         aria-label="メモ"
-        className={inputClass}
+        className={textareaClass}
       />
       <input
         name="url"
@@ -75,11 +77,7 @@ export function MemoForm({
       />
       <TagEditor defaultTags={memo?.tags ?? []} suggestions={tagSuggestions} />
       <div className="flex items-center justify-end gap-2">
-        {state.error ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
-        ) : null}
+        {state.error ? <p className={errorTextClass}>{state.error}</p> : null}
         {onDone ? (
           <button
             type="button"

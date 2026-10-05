@@ -9,8 +9,11 @@ import {
 import { DraftFields } from "./DraftFields";
 import { formatYen, type FinanceDraft } from "@/lib/domain/finance";
 import {
+  aiBadgeClass,
   dangerButtonClass,
   emptyClass,
+  errorTextClass,
+  listCardClass,
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/components/ui/styles";
@@ -57,13 +60,11 @@ function RecordRow({ record }: { record: RecordView }) {
 
   if (editing) {
     return (
-      <li className="flex flex-col gap-2 border-t border-zinc-200 py-3 dark:border-zinc-800">
+      <li className="flex flex-col gap-3 px-4 py-4 sm:px-5">
         <DraftFields draft={draft} onChange={setDraft} />
         <div className="flex items-center justify-end gap-2">
           {error ? (
-            <p className="mr-auto text-sm text-red-600 dark:text-red-400">
-              {error}
-            </p>
+            <p className={`mr-auto ${errorTextClass}`}>{error}</p>
           ) : null}
           <button
             type="button"
@@ -97,30 +98,30 @@ function RecordRow({ record }: { record: RecordView }) {
   }
 
   return (
-    <li className="border-t border-zinc-200 dark:border-zinc-800">
+    <li>
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="flex w-full items-center gap-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900"
+        className="group flex w-full items-center gap-4 px-4 py-3.5 text-left sm:px-5"
       >
-        <span className="w-16 shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+        <span className="w-14 shrink-0 font-mono text-[11px] text-fog">
           {record.dateLabel}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm text-zinc-900 dark:text-zinc-50">
+          <span className="block truncate text-sm text-ink group-hover:underline">
             {record.description}
           </span>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-fog">
             {record.category}
-            {record.paymentMethod ? ` ・ ${record.paymentMethod}` : ""}
-            {record.source === "ai" ? " ・ AI" : ""}
+            {record.paymentMethod ? ` · ${record.paymentMethod}` : ""}
+            {record.source === "ai" ? (
+              <span className={aiBadgeClass}>AI</span>
+            ) : null}
           </span>
         </span>
         <span
           className={`shrink-0 text-sm font-medium tabular-nums ${
-            record.type === "income"
-              ? "text-green-700 dark:text-green-400"
-              : "text-zinc-900 dark:text-zinc-50"
+            record.type === "income" ? "text-success" : "text-ink"
           }`}
         >
           {record.type === "income" ? "+" : "−"}
@@ -136,7 +137,7 @@ export function RecordList({ records }: { records: RecordView[] }) {
     return <p className={emptyClass}>この月の記録はありません。</p>;
   }
   return (
-    <ul>
+    <ul className={listCardClass}>
       {records.map((record) => (
         <RecordRow key={record.id} record={record} />
       ))}

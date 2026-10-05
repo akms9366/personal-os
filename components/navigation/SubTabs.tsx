@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { tabPillClass } from "@/components/ui/styles";
 
 export interface SubTab {
   href: string;
@@ -19,8 +20,11 @@ export function SubTabs({ tabs }: { tabs: SubTab[] }) {
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
-    <nav aria-label="サブナビゲーション" className="-mx-1 mb-5 overflow-x-auto">
-      <ul className="flex gap-1 px-1">
+    <nav
+      aria-label="サブナビゲーション"
+      className="-mx-4 mb-10 overflow-x-auto px-4 sm:mx-0 sm:px-0"
+    >
+      <ul className="flex gap-1">
         {tabs.map((tab) => {
           const active = tab.href === activeHref;
           return (
@@ -28,11 +32,7 @@ export function SubTabs({ tabs }: { tabs: SubTab[] }) {
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className={`block rounded-full px-3 py-1.5 text-sm whitespace-nowrap transition-colors ${
-                  active
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-                }`}
+                className={tabPillClass(active)}
               >
                 {tab.label}
               </Link>

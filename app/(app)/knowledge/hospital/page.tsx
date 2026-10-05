@@ -4,6 +4,8 @@ import { CsvLink } from "@/components/ui/CsvLink";
 import {
   cardClass,
   emptyClass,
+  listCardClass,
+  metaClass,
   sectionTitleClass,
 } from "@/components/ui/styles";
 import { getSpace } from "@/lib/navigation/spaces";
@@ -22,8 +24,8 @@ export default async function HospitalListPage() {
   return (
     <SpaceScaffold space={space}>
       <KnowledgeTabs />
-      <div className="flex flex-col gap-6">
-        <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-12">
+        <section className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className={sectionTitleClass}>通院先</h2>
             <CsvLink kind="hospital" label="診察記録をCSV出力" />
@@ -33,25 +35,25 @@ export default async function HospitalListPage() {
               通院先はまだありません。下から追加できます。
             </p>
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul className={listCardClass}>
               {hospitals.map((hospital) => {
                 const last = hospital.visits[0];
                 return (
                   <li key={hospital.id}>
                     <Link
                       href={`/knowledge/hospital/${hospital.id}`}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                      className="group flex items-center justify-between gap-3 px-4 py-4 sm:px-5"
                     >
                       <span className="min-w-0">
-                        <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                        <span className="block text-sm font-medium text-ink group-hover:underline">
                           {hospital.name}
                           {hospital.department ? (
-                            <span className="ml-2 text-xs font-normal text-zinc-500">
+                            <span className="ml-2 text-xs font-normal text-fog">
                               {hospital.department}
                             </span>
                           ) : null}
                         </span>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        <span className={`mt-1 block ${metaClass}`}>
                           {last
                             ? `最終受診 ${formatDateLabel(last.visitDate)}`
                             : "受診記録なし"}
@@ -60,7 +62,7 @@ export default async function HospitalListPage() {
                             : ""}
                         </span>
                       </span>
-                      <span className="shrink-0 text-xs text-zinc-400">
+                      <span className="shrink-0 font-mono text-xs text-fog transition group-hover:text-ink">
                         {hospital._count.visits}件 ›
                       </span>
                     </Link>
@@ -72,7 +74,7 @@ export default async function HospitalListPage() {
         </section>
 
         <section className={cardClass}>
-          <h2 className={`mb-3 ${sectionTitleClass}`}>通院先を追加</h2>
+          <h2 className={`mb-5 ${sectionTitleClass}`}>通院先を追加</h2>
           <HospitalForm />
         </section>
       </div>

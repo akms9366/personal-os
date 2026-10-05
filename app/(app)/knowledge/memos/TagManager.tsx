@@ -9,7 +9,10 @@ import {
 } from "./actions";
 import {
   dangerButtonClass,
+  errorTextClass,
+  ghostButtonClass,
   inputClass,
+  metaClass,
   secondaryButtonClass,
 } from "@/components/ui/styles";
 
@@ -51,7 +54,7 @@ function TagRow({ tag }: { tag: TagView }) {
   }
 
   return (
-    <li className="flex flex-col gap-1 py-1.5">
+    <li className="flex flex-col gap-1 py-2.5">
       {editing ? (
         <form action={formAction} className="flex items-center gap-2">
           <input type="hidden" name="tagId" value={tag.id} />
@@ -79,15 +82,15 @@ function TagRow({ tag }: { tag: TagView }) {
         </form>
       ) : (
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm text-zinc-800 dark:text-zinc-200">
+          <span className="text-sm text-ink">
             #{tag.name}
-            <span className="ml-1.5 text-xs text-zinc-400">{tag.count}件</span>
+            <span className={`ml-2 ${metaClass}`}>{tag.count}件</span>
           </span>
           <div className="flex gap-1">
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className={secondaryButtonClass}
+              className={ghostButtonClass}
             >
               名前変更
             </button>
@@ -102,9 +105,7 @@ function TagRow({ tag }: { tag: TagView }) {
           </div>
         </div>
       )}
-      {state.error ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
-      ) : null}
+      {state.error ? <p className={errorTextClass}>{state.error}</p> : null}
     </li>
   );
 }
@@ -112,14 +113,10 @@ function TagRow({ tag }: { tag: TagView }) {
 /// タグの一覧・名前変更・削除。同名のタグへ名前変更すると統合される。
 export function TagManager({ tags }: { tags: TagView[] }) {
   if (tags.length === 0) {
-    return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        タグはまだありません。
-      </p>
-    );
+    return <p className="text-sm text-fog">タグはまだありません。</p>;
   }
   return (
-    <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+    <ul className="divide-y divide-dove/60">
       {tags.map((tag) => (
         <TagRow key={tag.id} tag={tag} />
       ))}

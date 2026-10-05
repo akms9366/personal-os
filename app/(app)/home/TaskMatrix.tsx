@@ -1,4 +1,5 @@
 import { TASK_LEVEL_LABELS, type TaskLevel } from "@/lib/domain/task";
+import { metaClass } from "@/components/ui/styles";
 
 export interface MatrixTask {
   id: string;
@@ -17,14 +18,11 @@ export function TaskMatrix({ tasks }: { tasks: MatrixTask[] }) {
   ).length;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] gap-1 text-xs">
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] gap-1.5 text-xs">
         <div />
         {LEVELS_DESC.map((urgency) => (
-          <div
-            key={urgency}
-            className="pb-1 text-center text-zinc-500 dark:text-zinc-400"
-          >
+          <div key={urgency} className={`pb-1 text-center ${metaClass}`}>
             緊急{urgency}
             <span className="ml-0.5">{TASK_LEVEL_LABELS[urgency]}</span>
           </div>
@@ -34,7 +32,7 @@ export function TaskMatrix({ tasks }: { tasks: MatrixTask[] }) {
         ))}
       </div>
       {unset > 0 ? (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="text-xs text-fog">
           重要度・緊急度が未設定のタスク: {unset}
           件（タスクを開いて設定できます）
         </p>
@@ -52,30 +50,32 @@ function MatrixRow({
 }) {
   return (
     <>
-      <div className="flex items-center pr-1 text-zinc-500 [writing-mode:horizontal-tb] dark:text-zinc-400">
+      <div className={`flex items-center pr-1 ${metaClass}`}>
         重要{importance}
       </div>
       {LEVELS_DESC.map((urgency) => {
         const cell = tasks.filter(
           (task) => task.importance === importance && task.urgency === urgency,
         );
-        // 重要度と緊急度の和が大きいセルほど濃く（注意を向けやすく）する。
+        // 重要度と緊急度の和が大きいセルほど濃く（注意を向けやすく）する。色相は使わず明度だけで表す。
         const weight = importance + urgency;
         const tone =
           weight >= 6
-            ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+            ? "bg-ink text-paper"
             : weight >= 5
-              ? "bg-zinc-300 text-zinc-900 dark:bg-zinc-600 dark:text-zinc-50"
+              ? "bg-steel text-paper"
               : weight >= 4
-                ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                : "border border-zinc-200 text-zinc-700 dark:border-zinc-800 dark:text-zinc-300";
+                ? "bg-sand text-ink"
+                : "bg-cream text-steel";
         return (
           <div
             key={urgency}
-            className={`flex min-h-14 flex-col gap-0.5 rounded-md p-1.5 ${tone}`}
+            className={`flex min-h-16 flex-col gap-0.5 rounded-lg p-2 ${tone}`}
             title={cell.map((task) => task.title).join("\n")}
           >
-            <span className="text-sm font-semibold">{cell.length}</span>
+            <span className="text-lg leading-tight font-normal tabular-nums">
+              {cell.length}
+            </span>
             {cell.slice(0, 2).map((task) => (
               <span key={task.id} className="truncate text-[11px] opacity-90">
                 {task.title}

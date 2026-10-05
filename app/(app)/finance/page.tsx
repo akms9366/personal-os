@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { CsvLink } from "@/components/ui/CsvLink";
-import { cardClass, sectionTitleClass } from "@/components/ui/styles";
+import {
+  cardClass,
+  eyebrowClass,
+  ghostButtonClass,
+  metaClass,
+  noticeClass,
+  sectionTitleClass,
+} from "@/components/ui/styles";
 import { getSpace } from "@/lib/navigation/spaces";
 import { listFinanceRecordsByMonth } from "@/lib/db/finance";
 import { formatYen, isFinanceType, summarize } from "@/lib/domain/finance";
@@ -41,11 +48,11 @@ export default async function FinancePage({
 
   return (
     <SpaceScaffold space={space}>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-14">
         <section className={cardClass}>
-          <h2 className={`mb-3 ${sectionTitleClass}`}>AI で記録</h2>
+          <h2 className={`mb-5 ${sectionTitleClass}`}>AI で記録</h2>
           {settings.aiApiKeyMasked ? null : (
-            <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            <p className={`mb-4 ${noticeClass}`}>
               AI を使うには{" "}
               <Link href="/settings" className="underline">
                 Settings
@@ -56,22 +63,22 @@ export default async function FinancePage({
           <FinanceCapture today={todayJst()} />
         </section>
 
-        <section className="flex flex-col gap-4">
+        <section className="flex flex-col gap-6">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Link
                 href={`/finance?month=${shiftMonth(month, -1)}`}
-                className="px-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                className={`${ghostButtonClass} size-8 px-0`}
                 aria-label="前の月"
               >
                 ‹
               </Link>
-              <h2 className={sectionTitleClass}>
+              <h2 className={`${sectionTitleClass} px-1 tabular-nums`}>
                 {year}年{monthNumber}月
               </h2>
               <Link
                 href={`/finance?month=${shiftMonth(month, 1)}`}
-                className="px-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                className={`${ghostButtonClass} size-8 px-0`}
                 aria-label="次の月"
               >
                 ›
@@ -80,7 +87,7 @@ export default async function FinancePage({
             <CsvLink kind="finance" label="全期間をCSV出力" />
           </div>
 
-          <dl className="grid grid-cols-3 gap-2">
+          <dl className="grid grid-cols-3 gap-4 rounded-2xl bg-cream p-5 sm:p-6">
             <Stat label="収入" value={formatYen(summary.income)} />
             <Stat label="支出" value={formatYen(summary.expense)} />
             <Stat
@@ -90,28 +97,24 @@ export default async function FinancePage({
           </dl>
 
           {summary.expenseByCategory.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                支出の内訳
-              </h3>
-              <ul className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-3">
+              <h3 className={eyebrowClass}>支出の内訳</h3>
+              <ul className="flex flex-col gap-2">
                 {summary.expenseByCategory.map((item) => (
                   <li
                     key={item.category}
-                    className="grid grid-cols-[6rem_1fr_auto] items-center gap-2 text-sm"
+                    className="grid grid-cols-[6rem_1fr_auto] items-center gap-3 text-sm"
                   >
-                    <span className="truncate text-zinc-700 dark:text-zinc-300">
-                      {item.category}
-                    </span>
-                    <span className="h-2 rounded-r-full bg-zinc-100 dark:bg-zinc-900">
+                    <span className="truncate text-steel">{item.category}</span>
+                    <span className="h-1.5 rounded-full bg-cream">
                       <span
-                        className="block h-2 rounded-r-full bg-zinc-700 dark:bg-zinc-300"
+                        className="block h-1.5 rounded-full bg-ink"
                         style={{
                           width: `${Math.max(2, (item.amount / maxCategory) * 100)}%`,
                         }}
                       />
                     </span>
-                    <span className="text-right text-zinc-900 tabular-nums dark:text-zinc-100">
+                    <span className="text-right text-ink tabular-nums">
                       {formatYen(item.amount)}
                     </span>
                   </li>
@@ -142,9 +145,9 @@ export default async function FinancePage({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800">
-      <dt className="text-xs text-zinc-500 dark:text-zinc-400">{label}</dt>
-      <dd className="text-base font-semibold text-zinc-900 tabular-nums sm:text-lg dark:text-zinc-50">
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <dt className={metaClass}>{label}</dt>
+      <dd className="truncate text-lg leading-none font-normal tracking-[-0.025em] text-ink tabular-nums sm:text-3xl">
         {value}
       </dd>
     </div>
