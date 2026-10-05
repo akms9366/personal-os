@@ -55,13 +55,13 @@ body {
 }
 
 /*
- * Home の2カラム配置。モバイルは DOM 順（現在地→予定→タスク→マトリクス→振り返り）の1列、
- * lg 以上は左にタスク、右に現在地・予定・マトリクス・振り返りを積む。
+ * Home の2カラム配置。モバイルは メモ→現在地→予定→タスク→マトリクス→振り返り の1列、
+ * lg 以上は左にメモとタスク、右に現在地・予定・マトリクス・振り返りを積む。
  */
 .home-grid {
   display: grid;
   gap: 3rem;
-  grid-template-areas: "state" "events" "tasks" "matrix" "reflection";
+  grid-template-areas: "memo" "state" "events" "tasks" "matrix" "reflection";
 }
 
 @media (min-width: 64rem) {
@@ -69,11 +69,12 @@ body {
     column-gap: 3rem;
     row-gap: 2.5rem;
     grid-template-columns: minmax(0, 1fr) 22rem;
-    grid-template-rows: auto auto auto 1fr;
+    grid-template-rows: auto auto auto auto 1fr;
     grid-template-areas:
-      "tasks state"
+      "memo state"
       "tasks events"
       "tasks matrix"
-      "tasks reflection";
+      "tasks reflection"
+      "tasks .";
   }
 }

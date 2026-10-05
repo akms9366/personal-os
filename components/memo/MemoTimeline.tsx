@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteMemoAction } from "./actions";
+import { deleteMemoAction } from "@/app/(app)/knowledge/memos/actions";
 import { MemoAvatar, MemoComposer } from "./MemoComposer";
 import { extractHashtags, tokenizeMemoText } from "@/lib/domain/memo";
 import {

@@ -14,6 +14,9 @@ import { CalendarConnectionForm } from "./CalendarConnectionForm";
 // MVP（14 PR-06）では4枠のうち「AI & Automation」のみ実機能。他は後続 Issue のスタブ。
 const space = getSpace("settings")!;
 
+// カレンダーの最終同期など、設定画面の表示は DB の最新値に依存する。
+export const dynamic = "force-dynamic";
+
 function SettingsSection({
   index,
   title,
