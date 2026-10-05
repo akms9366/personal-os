@@ -14,6 +14,10 @@ import {
 // 05 §6 の主な入口 BrainDump（断片的な入力をすばやく受け入れる）に対応する MVP の実体。
 const space = getSpace("knowledge")!;
 
+// Inbox は毎回の DB の内容を表示する。付けないとビルド時に静的ページとして固まり、
+// Quick Capture で保存した記録が（本番で）表示されない。
+export const dynamic = "force-dynamic";
+
 export default async function KnowledgePage() {
   const entries = await listCurrentEntries();
 

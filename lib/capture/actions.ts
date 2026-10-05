@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createEntry } from "@/lib/db/entries";
 
 export interface QuickCaptureState {
@@ -25,5 +26,7 @@ export async function saveQuickCapture(
     origin: "human",
   });
 
+  // Inbox（/knowledge）に保存直後の記録を反映する。
+  revalidatePath("/knowledge");
   return { success: true };
 }
