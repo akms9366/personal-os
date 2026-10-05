@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { getSpace } from "@/lib/navigation/spaces";
 import { listTasks } from "@/lib/db/tasks";
@@ -5,20 +6,16 @@ import { getLatestReflection } from "@/lib/db/entries";
 import { getTodayEvents } from "@/lib/calendar/sync";
 import { getTimeOfDay } from "@/lib/home/timeOfDay";
 import { organizeTasks, type TaskStatus } from "@/lib/domain/task";
-import {
-  formatDateTimeLabel,
-  toJstDateString,
-  toJstTimeString,
-  todayJst,
-} from "@/lib/time/jst";
+import { formatHeadlineDateJst, todayJst } from "@/lib/time/jst";
 import { CsvLink } from "@/components/ui/CsvLink";
 import { eyebrowClass, sectionTitleClass } from "@/components/ui/styles";
 import { CurrentState } from "./CurrentState";
 import { ReflectionForm } from "./ReflectionForm";
 import { TaskCreateForm } from "./TaskCreateForm";
-import { TaskList, type TaskView } from "./TaskList";
+import { TaskList } from "./TaskList";
 import { TaskMatrix } from "./TaskMatrix";
 import { TodayEvents } from "./TodayEvents";
+import { toTaskView } from "./taskView";
 
 // Home 空間（05 §4「今日行動するための画面」）。
 // Issue #11 で「今日」領域のうちタスク（一覧・状態遷移）を実装。
@@ -58,25 +55,27 @@ export default async function HomePage() {
   const timeOfDay = getTimeOfDay(now);
 
   const organized = organizeTasks(tasks);
-  const toView = (task: (typeof tasks)[number]): TaskView => ({
-    id: task.id,
-    title: task.title,
-    note: task.note,
-    status: task.status,
-    dueLabel: task.dueAt ? formatDateTimeLabel(task.dueAt) : null,
-    dueDate: task.dueAt ? toJstDateString(task.dueAt) : "",
-    dueTime: task.dueAt ? toJstTimeString(task.dueAt) : "23:59",
-    overdue: task.dueAt ? task.dueAt.getTime() < now.getTime() : false,
-    importance: task.importance,
-    urgency: task.urgency,
-  });
+  const toView = (task: (typeof tasks)[number]) => toTaskView(task, now);
+
+  const headline = formatHeadlineDateJst(now);
 
   const heldTaskTitles = tasks
     .filter((task) => task.status === "hold")
     .map((task) => task.title);
 
   return (
-    <SpaceScaffold space={space} width="wide">
+    <SpaceScaffold
+      space={space}
+      width="wide"
+      title={
+        <>
+          {headline.date}
+          <span className="ml-3 text-2xl tracking-[-0.025em] text-fog md:ml-4 md:text-3xl">
+            {headline.weekday}
+          </span>
+        </>
+      }
+    >
       <div className="home-grid">
         <div className="[grid-area:state]">
           <CurrentState
@@ -137,21 +136,12 @@ export default async function HomePage() {
             />
           </div>
 
-          {organized.done.length > 0 ? (
-            <details className="group flex flex-col gap-3">
-              <summary
-                className={`cursor-pointer list-none ${eyebrowClass} hover:text-ink`}
-              >
-                <span className="inline-block transition group-open:rotate-90">
-                  ›
-                </span>{" "}
-                完了（{organized.done.length}件）
-              </summary>
-              <div className="pt-3">
-                <TaskList tasks={organized.done.map(toView)} emptyText="" />
-              </div>
-            </details>
-          ) : null}
+          <Link
+            href="/home/done"
+            className={`self-start ${eyebrowClass} transition hover:text-ink`}
+          >
+            完了したタスク（{organized.done.length}件） →
+          </Link>
         </section>
 
         <section className="flex flex-col gap-4 [grid-area:matrix]">

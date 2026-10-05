@@ -69,7 +69,7 @@ export async function createTaskAction(
   }
 
   await createTask({ ...values, note: values.note ?? undefined });
-  revalidatePath("/home");
+  revalidatePath("/home", "layout");
   return { success: true };
 }
 
@@ -89,7 +89,7 @@ export async function updateTaskAction(
   }
 
   await updateTask(taskId, values);
-  revalidatePath("/home");
+  revalidatePath("/home", "layout");
   return { success: true };
 }
 
@@ -104,7 +104,7 @@ export async function deleteTaskAction(
   }
 
   await deleteTask(taskId);
-  revalidatePath("/home");
+  revalidatePath("/home", "layout");
   return { success: true };
 }
 
@@ -124,7 +124,7 @@ export async function updateTaskStatusAction(
   }
 
   await updateTask(taskId, { status });
-  revalidatePath("/home");
+  revalidatePath("/home", "layout");
   return { success: true };
 }
 
@@ -147,6 +147,6 @@ export async function saveReflectionAction(
     state: "S8",
   });
 
-  revalidatePath("/home");
+  revalidatePath("/home", "layout");
   return { success: true };
 }
