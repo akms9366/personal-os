@@ -9,6 +9,7 @@ import {
   ghostButtonClass,
   metaClass,
 } from "@/components/ui/styles";
+import { SuggestionList, type DecideHandler } from "./SuggestionList";
 import type { MemoAnalysisView } from "./memoView";
 
 // タイムラインの投稿に紐づく AI 解析の表示（Issue #20）。hooks を持たない表示専用。
@@ -54,12 +55,15 @@ function Fact({ label, value }: { label: string; value: string | null }) {
 
 function InterpretationDetails({
   interpretation,
+  showTasks,
 }: {
   interpretation: Interpretation;
+  /// 行動候補（S4）を別に出しているときは、タスク候補をここで重ねて出さない。
+  showTasks: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3 pt-2 text-xs leading-relaxed text-steel">
-      {interpretation.tasks.map((task, index) => (
+      {(showTasks ? interpretation.tasks : []).map((task, index) => (
         <div key={`task-${index}`} className="flex flex-col gap-0.5">
           <span className="text-ink">
             <span className={metaClass}>タスク候補</span> {task.title}
@@ -124,12 +128,15 @@ export function MemoAnalysisPanel({
   view,
   analyzing,
   onAnalyze,
+  onDecide,
 }: {
   view: MemoAnalysisView;
   /// この画面から解析を実行中（サーバの状態を再取得するまでの間）。
   analyzing: boolean;
   /// 解析・再解析を始める。AI が使えない設定なら渡さない（ボタンを出さない）。
   onAnalyze?: () => void;
+  /// 行動候補への決定（採用・却下・保留）。渡さなければ表示のみ。
+  onDecide?: DecideHandler;
 }) {
   if (analyzing || view.state === "running") {
     return (
@@ -206,6 +213,7 @@ export function MemoAnalysisPanel({
           {interpretation.summary}
         </p>
       ) : null}
+      <SuggestionList suggestions={view.suggestions} onDecide={onDecide} />
       <details className="group">
         <summary className="cursor-pointer list-none font-mono text-[11px] text-fog hover:text-ink">
           <span className="inline-block transition group-open:rotate-90">
@@ -213,7 +221,10 @@ export function MemoAnalysisPanel({
           </span>{" "}
           詳細と根拠
         </summary>
-        <InterpretationDetails interpretation={interpretation} />
+        <InterpretationDetails
+          interpretation={interpretation}
+          showTasks={view.suggestions.length === 0}
+        />
         <p className={`pt-3 ${metaClass}`}>
           この投稿の原文から AI が生成（{view.generatedLabel}
           {view.model ? ` · ${view.model}` : ""}）。原文は変更していません。

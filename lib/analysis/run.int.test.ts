@@ -77,9 +77,25 @@ beforeEach(async () => {
   const { prisma } = m;
   await prisma.memo.deleteMany();
   await prisma.aiAnalysis.deleteMany();
-  await prisma.entry.deleteMany({ where: { state: "S2" } });
-  await prisma.entry.deleteMany({ where: { revisesEntryId: { not: null } } });
-  await prisma.entry.deleteMany();
+  // 子（派生・新版）から順に消す（親を先に消すと参照の制約に当たる）。
+  let rows = await prisma.entry.findMany({
+    select: { id: true, sourceEntryId: true, revisesEntryId: true },
+  });
+  while (rows.length > 0) {
+    const referenced = new Set(
+      rows.flatMap((row) =>
+        [row.sourceEntryId, row.revisesEntryId].filter(
+          (id): id is string => id !== null,
+        ),
+      ),
+    );
+    const leaves = rows.filter((row) => !referenced.has(row.id));
+    await prisma.entry.deleteMany({
+      where: { id: { in: leaves.map((row) => row.id) } },
+    });
+    const gone = new Set(leaves.map((row) => row.id));
+    rows = rows.filter((row) => !gone.has(row.id));
+  }
 });
 
 async function post(text: string, requestAnalysis = true) {

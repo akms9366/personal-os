@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./client";
 import { createEntry, INTERPRETATION_SOURCE, reviseEntry } from "./entries";
+import { SUGGESTION_SOURCE } from "../domain/suggestion";
 import {
   composeMemoText,
   MEMO_TAG_MAX_LENGTH,
@@ -76,6 +77,25 @@ const memoInclude = {
         where: { source: INTERPRETATION_SOURCE },
         orderBy: { createdAt: "desc" },
         take: 1,
+        include: {
+          // 行動候補（S4, Issue #21）と、それぞれへの利用者の決定（S5）・採用で作られた Task。
+          derivedEntries: {
+            where: { source: SUGGESTION_SOURCE },
+            orderBy: { id: "asc" },
+            include: {
+              derivedEntries: {
+                where: { state: "S5" },
+                orderBy: { createdAt: "asc" },
+                include: {
+                  revisedBy: { select: { id: true } },
+                  originatedTasks: {
+                    select: { id: true, title: true, status: true },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
   },
@@ -217,20 +237,21 @@ export async function ensureMemoEntry(memoId: string): Promise<string> {
   });
 }
 
-/// 投稿の削除。Memo と、その原情報の版の連鎖・各版の AI 解釈（S2）・解析記録を一緒に消す
-/// （元を消した後に派生を無検証で残さない。06 §8）。ただし、いずれかの版がタスクの起点
-/// （Task.originEntryId）になっている場合は来歴を守るため Entry 側は残し、Memo だけを消す。
+/// 投稿の削除。Memo と、その原情報の版の連鎖・そこから派生した全ての Entry（AI 解釈 S2・行動候補 S4・
+/// 利用者の決定 S5）・解析記録を一緒に消す（元を消した後に派生を無検証で残さない。06 §8）。
+/// ただし、その連鎖のどれかがタスクの起点（Task.originEntryId。採用した決定を含む）になっている場合は
+/// 来歴を守るため Entry 側は残し、Memo だけを消す。
 export async function deleteMemoPost(memoId: string): Promise<void> {
   const memo = await prisma.memo.findUnique({ where: { id: memoId } });
   if (!memo) {
     return;
   }
 
-  // 現在版から revisesEntryId を辿って、全ての版を新しい順に集める。
-  const versions: string[] = [];
+  // 現在版から revisesEntryId を辿って、全ての版（S1）を集める。
+  const tree = new Set<string>();
   let cursor = memo.entryId;
-  while (cursor) {
-    versions.push(cursor);
+  while (cursor && !tree.has(cursor)) {
+    tree.add(cursor);
     const entry: { revisesEntryId: string | null } | null =
       await prisma.entry.findUnique({
         where: { id: cursor },
@@ -239,22 +260,50 @@ export async function deleteMemoPost(memoId: string): Promise<void> {
     cursor = entry?.revisesEntryId ?? null;
   }
 
+  // そこから sourceEntryId で派生した Entry を、深さごとに全て集める。
+  let frontier = [...tree];
+  while (frontier.length > 0) {
+    const children = await prisma.entry.findMany({
+      where: { sourceEntryId: { in: frontier } },
+      select: { id: true },
+    });
+    frontier = children.map((child) => child.id).filter((id) => !tree.has(id));
+    frontier.forEach((id) => tree.add(id));
+  }
+
+  const ids = [...tree];
   const referencedByTask =
-    versions.length > 0 &&
-    (await prisma.task.count({ where: { originEntryId: { in: versions } } })) >
-      0;
+    ids.length > 0 &&
+    (await prisma.task.count({ where: { originEntryId: { in: ids } } })) > 0;
 
   await prisma.$transaction(async (tx) => {
     await tx.memo.delete({ where: { id: memoId } });
-    if (versions.length === 0 || referencedByTask) {
+    if (ids.length === 0 || referencedByTask) {
       return;
     }
-    await tx.entry.deleteMany({
-      where: { sourceEntryId: { in: versions }, origin: "ai" },
+    // 子（派生・新版）から順に消す。親を先に消すと参照の制約（Restrict）に当たる。
+    const rows = await tx.entry.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, sourceEntryId: true, revisesEntryId: true },
     });
-    // 新しい版から順に消す（旧版は新版から revisesEntryId で参照されているため）。
-    for (const id of versions) {
-      await tx.entry.delete({ where: { id } });
+    let remaining = rows;
+    while (remaining.length > 0) {
+      const referenced = new Set(
+        remaining.flatMap((row) =>
+          [row.sourceEntryId, row.revisesEntryId].filter(
+            (id): id is string => id !== null,
+          ),
+        ),
+      );
+      const leaves = remaining.filter((row) => !referenced.has(row.id));
+      if (leaves.length === 0) {
+        throw new Error("entry reference cycle while deleting a memo");
+      }
+      await tx.entry.deleteMany({
+        where: { id: { in: leaves.map((row) => row.id) } },
+      });
+      const gone = new Set(leaves.map((row) => row.id));
+      remaining = remaining.filter((row) => !gone.has(row.id));
     }
   });
 }
