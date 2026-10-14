@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   analyzeMemoAction,
+  decideSuggestionAction,
   deleteMemoAction,
 } from "@/app/(app)/knowledge/memos/actions";
 import { MemoAvatar, MemoComposer } from "./MemoComposer";
 import { MemoPostBody } from "./MemoPostBody";
+import type { DecideHandler } from "./SuggestionList";
 import type { MemoPostView } from "./memoView";
 import {
   dangerButtonClass,
@@ -74,6 +76,13 @@ function MemoPost({
     return () => clearTimeout(timer);
   }, [aiAvailable, memo.analysis.state, memo.entryId, memo.id, analyze]);
 
+  // 行動候補への決定（採用・却下・保留）。利用者のボタン操作でだけ呼ばれる。
+  const decide: DecideHandler = async (suggestionId, request) => {
+    const result = await decideSuggestionAction({ suggestionId, ...request });
+    router.refresh();
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
+  };
+
   function handleDelete() {
     const preview = memo.text.split("\n")[0];
     if (!window.confirm(`「${preview}」を削除しますか？`)) {
@@ -109,6 +118,7 @@ function MemoPost({
               memo={memo}
               analyzing={analyzing}
               onAnalyze={aiAvailable && !analyzing ? analyze : undefined}
+              onDecide={decide}
             />
             <div className="-ml-3 flex gap-1">
               <button

@@ -1,8 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./client";
 import {
+  assertDecisionRevisionTarget,
+  assertDecisionTarget,
   assertInterpretationSource,
   assertRevisionTargetIsOriginal,
+  assertSuggestionSource,
   validateEntryInvariants,
 } from "../domain/guard";
 import type { EntryKind, EntryState, Origin } from "../domain/entry";
@@ -96,6 +99,116 @@ export async function createInterpretationEntry(
       sourceEntryId: entry.sourceEntryId,
     },
   });
+}
+
+/// 行動候補（S4, Issue #21）を、AI 解釈（S2）に紐づく派生 Entry として作成する。
+/// id は呼び出し側が決める（解釈と候補の位置から決まる id で、重複作成を主キー制約で防ぐ）。
+/// 既に同じ id があれば作らず null を返す。
+export async function createSuggestionEntry(
+  db: Prisma.TransactionClient,
+  params: {
+    id: string;
+    interpretationEntryId: string;
+    body: string;
+    source: string;
+  },
+) {
+  const parent = await db.entry.findUnique({
+    where: { id: params.interpretationEntryId },
+  });
+  if (!parent) {
+    throw new Error(`entry not found: ${params.interpretationEntryId}`);
+  }
+  assertSuggestionSource(parent);
+
+  const entry = {
+    kind: parent.kind,
+    origin: "ai",
+    state: "S4",
+    sourceEntryId: parent.id,
+  };
+  validateEntryInvariants(entry);
+
+  if (await db.entry.findUnique({ where: { id: params.id } })) {
+    return null;
+  }
+  return db.entry.create({
+    data: {
+      id: params.id,
+      kind: entry.kind,
+      body: params.body,
+      source: params.source,
+      origin: entry.origin,
+      state: entry.state,
+      sourceEntryId: entry.sourceEntryId,
+    },
+  });
+}
+
+/// 決定（S5, Issue #21）を、提案（S4）に紐づく利用者の Entry として作成する。
+/// 決め直しの場合は previousDecisionId（現在の決定）を渡し、新しい版（revisesEntryId）として残す。
+/// 前の決定は書き換えない。id は呼び出し側が決める（同じ状態から同時に2回決めても1件だけ成功）。
+export async function createDecisionEntry(
+  db: Prisma.TransactionClient,
+  params: {
+    id: string;
+    suggestionId: string;
+    previousDecisionId: string | null;
+    body: string;
+    source: string;
+  },
+) {
+  const suggestion = await db.entry.findUnique({
+    where: { id: params.suggestionId },
+  });
+  if (!suggestion) {
+    throw new Error(`entry not found: ${params.suggestionId}`);
+  }
+  assertDecisionTarget(suggestion);
+
+  if (params.previousDecisionId) {
+    const previous = await db.entry.findUnique({
+      where: { id: params.previousDecisionId },
+      include: { revisedBy: { select: { id: true } } },
+    });
+    if (!previous) {
+      throw new Error(`entry not found: ${params.previousDecisionId}`);
+    }
+    assertDecisionRevisionTarget(previous, suggestion.id);
+    if (previous.revisedBy.length > 0) {
+      // 既に別の決定で置き換えられている（古い画面からの操作）。
+      throw new StaleDecisionError();
+    }
+  }
+
+  const entry = {
+    kind: suggestion.kind,
+    origin: "human",
+    state: "S5",
+    sourceEntryId: suggestion.id,
+  };
+  validateEntryInvariants(entry);
+
+  return db.entry.create({
+    data: {
+      id: params.id,
+      kind: entry.kind,
+      body: params.body,
+      source: params.source,
+      origin: entry.origin,
+      state: entry.state,
+      sourceEntryId: entry.sourceEntryId,
+      revisesEntryId: params.previousDecisionId,
+    },
+  });
+}
+
+/// 決定が他の操作で既に変わっていた（二重操作・古い画面）。
+export class StaleDecisionError extends Error {
+  constructor() {
+    super("この提案は既に別の操作で決定されています。画面を更新してください。");
+    this.name = "StaleDecisionError";
+  }
 }
 
 /// 原情報（S1）の「修正」を新版として保存する（Issue #8）。旧版は一切書き換えない（06 §9 不変性）。

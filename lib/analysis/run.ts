@@ -3,6 +3,7 @@ import {
   createInterpretationEntry,
   INTERPRETATION_SOURCE,
 } from "@/lib/db/entries";
+import { createSuggestionsForInterpretation } from "@/lib/db/suggestions";
 import { assertInterpretationSource } from "@/lib/domain/guard";
 import {
   ANALYSIS_STALE_MS,
@@ -115,10 +116,16 @@ export async function runAnalysis(
         where: { sourceEntryId, source: INTERPRETATION_SOURCE },
       });
       if (existing === 0) {
-        await createInterpretationEntry(tx, {
+        const created = await createInterpretationEntry(tx, {
           sourceEntryId,
           body: serializeInterpretation(interpretation),
         });
+        // タスク候補は行動候補（S4）として記録する（Issue #21。追加の AI 呼び出しはしない）。
+        await createSuggestionsForInterpretation(
+          tx,
+          created.id,
+          interpretation,
+        );
       }
       await tx.aiAnalysis.update({
         where: { sourceEntryId },

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { extractHashtags, tokenizeMemoText } from "@/lib/domain/memo";
 import { tagClass } from "@/components/ui/styles";
 import { MemoAnalysisPanel } from "./MemoAnalysisPanel";
+import type { DecideHandler } from "./SuggestionList";
 import type { MemoPostView } from "./memoView";
 
 // 投稿の中身（原文・確定タグ・AI 解析）の表示専用部分。hooks を持たない。
@@ -57,10 +58,12 @@ export function MemoPostBody({
   memo,
   analyzing,
   onAnalyze,
+  onDecide,
 }: {
   memo: MemoPostView;
   analyzing: boolean;
   onAnalyze?: () => void;
+  onDecide?: DecideHandler;
 }) {
   // 本文に #タグ として現れないタグ（旧データ等）は、本文の下にチップで示す。
   const inText = extractHashtags(memo.text);
@@ -82,6 +85,7 @@ export function MemoPostBody({
         view={memo.analysis}
         analyzing={analyzing}
         onAnalyze={onAnalyze}
+        onDecide={onDecide}
       />
     </>
   );
