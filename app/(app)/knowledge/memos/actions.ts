@@ -2,57 +2,80 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  createMemo,
-  deleteMemo,
+  createMemoPost,
+  deleteMemoPost,
   deleteTag,
-  normalizeTagNames,
+  ensureMemoEntry,
+  MemoValidationError,
   renameTag,
-  updateMemo,
-  type MemoParams,
+  updateMemoPost,
 } from "@/lib/db/memos";
-import { parseMemoText } from "@/lib/domain/memo";
+import { isAiConfigured } from "@/lib/ai/client";
+import { runAnalysis, type AnalysisOutcome } from "@/lib/analysis/run";
 
 export interface MemoActionState {
   success?: boolean;
   error?: string;
+  /// 投稿・編集で保存したメモ。
+  memoId?: string;
 }
 
-function readMemoForm(formData: FormData): MemoParams | { error: string } {
-  const parsed = parseMemoText(String(formData.get("text") ?? ""));
-  if (!parsed) {
-    return { error: "メモを入力してください。" };
-  }
-  // タグ = 本文中の #ハッシュタグ ＋ 本文に書かれていない既存タグ（編集時に保持するもの）。
-  const extraTags = String(formData.get("tags") ?? "");
-  return {
-    title: parsed.title,
-    body: parsed.body,
-    url: parsed.url,
-    tagNames: normalizeTagNames([...parsed.hashtags, extraTags].join("\n")),
-  };
-}
-
+/// メモの投稿・編集（原文の保存）。AI 解析はここでは実行しない（別の失敗境界）。
+/// AI が使える設定なら解析を予約し、タイムライン側が analyzeMemoAction で実行する。
 export async function postMemoAction(
   _prevState: MemoActionState,
   formData: FormData,
 ): Promise<MemoActionState> {
-  const values = readMemoForm(formData);
-  if ("error" in values) {
-    return values;
-  }
-
+  const input = {
+    text: String(formData.get("text") ?? ""),
+    extraTags: String(formData.get("tags") ?? ""),
+    requestAnalysis: await isAiConfigured(),
+  };
   const memoId = String(formData.get("memoId") ?? "");
-  if (memoId) {
-    await updateMemo(memoId, values);
-  } else {
-    await createMemo(values);
+
+  try {
+    if (memoId) {
+      await updateMemoPost(memoId, input);
+      revalidatePath("/", "layout");
+      return { success: true, memoId };
+    }
+    const result = await createMemoPost(input);
+    revalidatePath("/", "layout");
+    return { success: true, memoId: result.memoId };
+  } catch (error) {
+    if (error instanceof MemoValidationError) {
+      return { error: error.message };
+    }
+    throw error;
   }
-  revalidatePath("/", "layout");
-  return { success: true };
+}
+
+/// メモ（の原情報の現在版）を AI で解析する。予約済みの解析の実行と、失敗後の再解析を兼ねる。
+/// 成功済み・実行中なら何もしない（重複した解釈を作らない）。失敗しても原文は変わらない。
+export async function analyzeMemoAction(
+  memoId: string,
+): Promise<AnalysisOutcome> {
+  if (!(await isAiConfigured())) {
+    return {
+      status: "failed",
+      error: "AI の API キーが未設定です。Settings で設定してください。",
+    };
+  }
+  try {
+    const entryId = await ensureMemoEntry(memoId);
+    return await runAnalysis(entryId);
+  } catch (error) {
+    if (error instanceof MemoValidationError) {
+      return { status: "failed", error: error.message };
+    }
+    throw error;
+  } finally {
+    revalidatePath("/", "layout");
+  }
 }
 
 export async function deleteMemoAction(memoId: string): Promise<void> {
-  await deleteMemo(memoId);
+  await deleteMemoPost(memoId);
   revalidatePath("/", "layout");
 }
 

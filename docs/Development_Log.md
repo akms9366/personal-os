@@ -1061,3 +1061,77 @@ ConoHa VPS（`160.251.142.148`, ドメイン `os-akms-ngn.com`）へのデプロ
 
 マイグレーションを含む。**`prisma migrate deploy` の前に本番 `.db`（`/opt/personal-os-data/prod.db`）をバックアップし、利用者の確認を待ってから実行する**（恒久ルール）。
 
+---
+
+## 2026-10-15
+
+### Issue #20: タイムライン入力の AI 解釈（S2）— 原文保存と解析の分離
+
+#### 概要
+
+タイムライン（メモ）に自然文を書くだけで、原文を保存したうえで AI が分類・抽出した「解釈」を元の投稿に紐づけて表示する。タスク・予定は**候補として表示するだけ**で、正式なタスク・予定には確定しない（採否は #21 の範囲）。
+
+- ブランチ: `feature/issue-020-timeline-ai-interpretation`
+- 対応 Issue: 設計リポ #20（整理候補生成 S2）。#19（Claude API 基盤）は Finance で導入済みの `lib/ai/client.ts` を再利用し、タイムアウト・リトライ指定と `isAiConfigured` を追加した（#19 の残り＝「AI 利用不能」の全体表示は未対応のまま）。
+
+#### 事前に判明した設計とのずれと、利用者の判断
+
+- #20 は「Inbox の原情報（S1 Entry）を対象に、解釈を `Entry(origin=ai, state=S2, sourceEntryId)` として保存」と定める。しかし PR #25 でタイムラインは `Memo`（可変・来歴なし）になっており、紐づける S1 が無かった。
+- 選択肢を提示し、利用者が**推奨案（投稿を S1 Entry と紐づける）**を選んだ。別案（Memo 用の解析テーブルのみ）は S1→S2 の来歴を満たさないため不採用。
+- #20 の「トリガーは手動起点から」に対し、今回の依頼は「投稿後に自動で解析」。依頼を優先し、新規投稿は自動、既存メモは手動（「AI で解析」ボタン）とした（費用のため既存分を一括解析しない）。
+
+#### データモデル（マイグレーション `20261015000000_timeline_ai_interpretation`）
+
+- `Memo.entryId`（unique, nullable）: 投稿の原情報（S1 Entry）の**現在版**。Memo は表示・タグ付け用の可変な層、原文と来歴の正本は Entry。
+  - 投稿 = `Entry(S1, origin=human, source="timeline")` と Memo を同一トランザクションで作成。
+  - 本文の編集 = 既存の `reviseEntry`（新版・`revisesEntryId`）で版を作り Memo の参照を付け替える。旧版とその解釈は来歴として残る。タグだけの変更では版を作らない。
+- `AiAnalysis`（`sourceEntryId` unique）: 解析の実行記録（pending / running / succeeded / failed・失敗理由・モデル・試行回数）。実行・失敗は S6/S7 系で Entry の対象外のため別テーブル。**原情報の版ごとに1行**で、重複リクエスト・二重解析を防ぐ。
+- 解析結果 = `Entry(origin=ai, state=S2, source="ai-interpretation", sourceEntryId=S1)`。body は検証済みの解釈 JSON（`v: 1`）。既存の `validateEntryInvariants` と新設の `assertInterpretationSource`（S1 かつ kind≠event のみ解析可）を通す。**Entry のスキーマは変更していない**。
+- 既存データの補完（INSERT と Memo.entryId の設定のみ、既存行は書き換えない）:
+  (a) 旧 Inbox から移行し未編集のメモ → 元の原情報に紐づけ、
+  (b) 移行後に編集されたメモ → 元の原情報の新版を作って紐づけ、
+  (c) 原情報を持たないメモ → 新しい S1 を作って紐づけ。
+  Memo テーブルは作り直さず `ALTER TABLE ADD COLUMN`（タグの関連テーブルに触れない）。`prisma migrate diff` で schema と差分ゼロを確認。開発 DB のコピーと、(a)(b)(c) を作った使い捨て DB で結果を確認済み。
+
+#### 処理フロー（失敗境界を分ける）
+
+1. `postMemoAction` → `createMemoPost`: 原文を S1 として保存（＋AI 設定済みなら `AiAnalysis(pending)` を予約）。ここで AI は呼ばない。同じ本文の 10 秒以内の再投稿は二重送信とみなし既存を返す（クライアント側も保存中の再送信を止める）。
+2. タイムラインの投稿が `pending` で表示されると、その投稿が `analyzeMemoAction` を呼ぶ（画面内で版ごとに1回）。
+3. `runAnalysis`（`lib/analysis/run.ts`）: `updateMany` で pending/failed/中断した running（2分超）から running を原子的に取得 → AI 呼び出し（`lib/ai/interpretation.ts`、構造化出力・30秒タイムアウト・リトライ1回）→ `normalizeInterpretation` で検証・正規化 → S2 作成と succeeded 更新を1トランザクション。失敗は failed と利用者向けの理由を記録（原文は無傷）。成功済みの版は再解析しない。
+4. 画面を再取得し、原文の下に解析結果（または解析中・失敗・再解析ボタン）を表示。
+
+#### 抽出のルール（原文にないことを補わない）
+
+- 分類: note / task_candidate / event_candidate / knowledge_candidate / reflection（複数可）。候補が無いのに付いた分類は外し、何も残らなければ note。確信が無ければ `uncertain`。
+- 日時は Asia/Tokyo。一意に決まる日付だけ `date`、幅のある表現（「来週まで」）は `date=null` で原文の表現を残す。時刻は原文に時刻の手がかりが無ければ捨てる（AI が付けても保存しない）。不正な日付・時刻は捨てる。
+- AI のタグ候補は表示するだけで、メモのタグにはしない（06 Tag: AI は候補 S2、確定は利用者）。
+
+#### UI
+
+- 原文は常に先頭にそのまま表示し、AI の状態に左右されない。
+- 解析結果は Sand の「AI 解釈」バッジ＋破線の枠＋「未確定の候補」で、利用者が確定した本文・タグ（実線）と区別。常時は分類ラベルと要約、「詳細と根拠」で抽出項目・確度・生成時刻・モデルを表示（#22 の根拠表示の一部を先取り）。
+- 状態: 未解析（AI で解析）／解析待ち／解析中／解析失敗（理由＋再解析）／解析済み／読み込めない。AI 未設定なら解析の UI を出さず、投稿・表示はそのまま使える。
+
+#### 削除
+
+- 投稿の削除で、原情報の全版・各版の AI 解釈・解析記録も消す（06 §8 元を消した後に派生を無検証で残さない）。いずれかの版がタスクの起点（`Task.originEntryId`）なら Entry 側は残し Memo だけ消す。
+
+#### テスト
+
+- `lib/domain/interpretation.test.ts`: スキーマ検証・不正応答の拒否・日時を補わない・分類の整合・保存形式の往復・解析開始の可否（状態遷移）。
+- `lib/domain/guard.test.ts`: 解析対象は S1 のみ、AI は S1 を作れない、S2 は親必須。
+- `lib/analysis/run.int.test.ts`（使い捨て SQLite に全マイグレーションを適用、AI はモック）: 投稿→保存→解析→一覧取得、AI エラー・キー未設定・形式不正で原文が残る、再解析で重複しない、同時要求は1回だけ実行、中断の引き継ぎ、二重送信、編集で新版・旧版の解釈は保持、タグのみ編集で版を作らない、削除で版・解釈・記録が消える。
+- `components/memo/MemoPostBody.test.tsx`（react-dom/server で描画）: 原文の表示、解析中・失敗（原文は残る）・解析済みの表示、AI 候補と確定タグの区別、壊れた結果。
+- vitest に `@/` の alias と `components/**/*.test.{ts,tsx}` を追加。
+- ブラウザ確認はモックの Claude API（`ANTHROPIC_BASE_URL`）で実施（下記）。
+
+#### デプロイ時の作業（VPS）
+
+マイグレーションを含む（列追加・テーブル追加・既存メモの原情報の補完）。**本番 `.db` をバックアップし、利用者の確認を待ってから `prisma migrate deploy`**。新規投稿は API キー設定済みなら自動で解析されるため、Claude API の利用料が投稿ごとに発生する（1投稿あたり入力数百〜千トークン程度・出力上限 2048）。
+
+#### 残課題
+
+- #21（候補の採用・却下・保留＝S4→S5、採用時のみタスク化）、#22（AI の ON/OFF・根拠表示の全体化）は未対応。
+- 自動解析は画面に表示された投稿が起動する方式のため、投稿直後にタブを閉じると「解析待ち」のまま残る（次に開いたとき自動で再開、または「今すぐ解析」）。
+- 設計 SSOT（05/06/14/15、#20 の対象を Inbox → タイムラインへ）の更新は未実施。
+

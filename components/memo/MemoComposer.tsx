@@ -78,7 +78,16 @@ export function MemoComposer({
   }
 
   return (
-    <form action={formAction} className="flex gap-3">
+    <form
+      action={formAction}
+      // 保存中の再送信（連打・⌘Enter の連続）を止める。サーバ側でも同じ本文の連続投稿は1件にまとめる。
+      onSubmit={(event) => {
+        if (pending) {
+          event.preventDefault();
+        }
+      }}
+      className="flex gap-3"
+    >
       {memo ? null : <MemoAvatar />}
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         {memo ? <input type="hidden" name="memoId" value={memo.id} /> : null}
@@ -89,7 +98,11 @@ export function MemoComposer({
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
-            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+            if (
+              (event.metaKey || event.ctrlKey) &&
+              event.key === "Enter" &&
+              !pending
+            ) {
               event.currentTarget.form?.requestSubmit();
             }
           }}
@@ -97,6 +110,7 @@ export function MemoComposer({
           autoFocus={autoFocus || Boolean(memo)}
           placeholder="いま気になっていることは？  #タグ で分類できます"
           aria-label="メモ"
+          readOnly={pending}
           className="field-sizing-content min-h-20 w-full resize-none bg-transparent pt-2 text-[15px] leading-relaxed text-ink outline-none placeholder:text-pewter"
         />
 

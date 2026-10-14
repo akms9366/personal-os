@@ -96,10 +96,28 @@ export function assertAiCannotWriteOriginal(params: {
 
 /// 「修正は新版生成」（Issue #8）の対象は原情報（S1）のみに限定する。
 /// 派生（S2/S4/S5）の再生成・決定変更は別概念（#20/#21）であり、ここでの revise 対象にしない。
-export function assertRevisionTargetIsOriginal(target: { state: string }): void {
+export function assertRevisionTargetIsOriginal(target: {
+  state: string;
+}): void {
   if (!isEntryState(target.state) || !isOriginalState(target.state)) {
     throw new EntryInvariantError(
       `only an original (S1) entry can be revised as a new version`,
     );
+  }
+}
+
+/// AI 解釈（S2, Issue #20）の対象にできるのは、本人または許可済み外部の原情報（S1）だけ。
+/// 派生（S2 以降）や振り返り（S8）を解釈の元にしない。カレンダー由来の予定（kind=event）も対象外。
+export function assertInterpretationSource(source: {
+  state: string;
+  kind: string;
+}): void {
+  if (source.state !== "S1") {
+    throw new EntryInvariantError(
+      `only an original (S1) entry can be interpreted (state=${source.state})`,
+    );
+  }
+  if (source.kind === "event") {
+    throw new EntryInvariantError(`calendar events are not interpreted`);
   }
 }

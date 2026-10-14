@@ -3,6 +3,7 @@ import { SpaceScaffold } from "@/components/layout/SpaceScaffold";
 import { CsvLink } from "@/components/ui/CsvLink";
 import { eyebrowClass, metaClass } from "@/components/ui/styles";
 import { getSpace } from "@/lib/navigation/spaces";
+import { isAiConfigured } from "@/lib/ai/client";
 import { countMemos, listMemos, listTagsWithCount } from "@/lib/db/memos";
 import { KnowledgeTabs } from "../KnowledgeTabs";
 import { MemoComposer } from "@/components/memo/MemoComposer";
@@ -21,10 +22,11 @@ export default async function MemosPage({
   searchParams: Promise<{ tag?: string }>;
 }) {
   const { tag } = await searchParams;
-  const [memos, tags, total] = await Promise.all([
+  const [memos, tags, total, aiAvailable] = await Promise.all([
     listMemos(tag),
     listTagsWithCount(),
     countMemos(),
+    isAiConfigured(),
   ]);
   const now = new Date();
   // 使われている数の多いタグから並べる（同数は名前順）。
@@ -85,6 +87,7 @@ export default async function MemosPage({
               </span>
             </div>
             <MemoTimeline
+              aiAvailable={aiAvailable}
               tagSuggestions={tagNames}
               emptyText={
                 tag
