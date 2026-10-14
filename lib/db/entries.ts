@@ -1,9 +1,11 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./client";
 import {
+  assertInterpretationSource,
   assertRevisionTargetIsOriginal,
   validateEntryInvariants,
-} from "@/lib/domain/guard";
-import type { EntryKind, EntryState, Origin } from "@/lib/domain/entry";
+} from "../domain/guard";
+import type { EntryKind, EntryState, Origin } from "../domain/entry";
 
 // Entry（原情報）書込みラッパ。
 // 設計参照: personal-os-design docs/14_Implementation_Backlog.md §7「書込み経路はドメインガード経由に統一」
@@ -12,13 +14,17 @@ import type { EntryKind, EntryState, Origin } from "@/lib/domain/entry";
 
 /// 本人の一次記録（S1 原情報・S8 振り返り）の新規 Entry を作成する。
 /// 派生（S2/S4/S5）の生成は別途ガード込みで扱う（#20/#21）。
-export async function createEntry(params: {
-  kind: EntryKind;
-  body: string;
-  source: string;
-  origin?: Origin;
-  state?: EntryState;
-}) {
+/// db を渡すとそのトランザクション内で作成する（Issue #20: メモの投稿と同時に原情報を作る）。
+export async function createEntry(
+  params: {
+    kind: EntryKind;
+    body: string;
+    source: string;
+    origin?: Origin;
+    state?: EntryState;
+  },
+  db: Prisma.TransactionClient = prisma,
+) {
   const entry = {
     kind: params.kind,
     origin: params.origin ?? "human",
@@ -28,7 +34,7 @@ export async function createEntry(params: {
 
   validateEntryInvariants(entry);
 
-  return prisma.entry.create({
+  return db.entry.create({
     data: {
       kind: entry.kind,
       body: params.body,
@@ -54,9 +60,51 @@ export async function listCurrentEntries() {
   });
 }
 
+/// AI 解釈（S2）の Entry の source。タイムラインの解析結果であることを示す。
+export const INTERPRETATION_SOURCE = "ai-interpretation";
+
+/// AI 解釈（S2, Issue #20）を、元の原情報（S1）に紐づく派生 Entry として作成する。
+/// origin=ai / state=S2 / sourceEntryId=原情報。原情報は読むだけで一切書き換えない。
+/// body は検証済みの解釈（lib/domain/interpretation.ts で serialize した JSON）。
+export async function createInterpretationEntry(
+  db: Prisma.TransactionClient,
+  params: { sourceEntryId: string; body: string },
+) {
+  const source = await db.entry.findUnique({
+    where: { id: params.sourceEntryId },
+  });
+  if (!source) {
+    throw new Error(`entry not found: ${params.sourceEntryId}`);
+  }
+  assertInterpretationSource(source);
+
+  const entry = {
+    kind: source.kind,
+    origin: "ai",
+    state: "S2",
+    sourceEntryId: source.id,
+  };
+  validateEntryInvariants(entry);
+
+  return db.entry.create({
+    data: {
+      kind: entry.kind,
+      body: params.body,
+      source: INTERPRETATION_SOURCE,
+      origin: entry.origin,
+      state: entry.state,
+      sourceEntryId: entry.sourceEntryId,
+    },
+  });
+}
+
 /// 原情報（S1）の「修正」を新版として保存する（Issue #8）。旧版は一切書き換えない（06 §9 不変性）。
-export async function reviseEntry(params: { entryId: string; body: string }) {
-  const target = await prisma.entry.findUnique({ where: { id: params.entryId } });
+/// db を渡すとそのトランザクション内で作成する（Issue #20: メモの本文編集と同時に版を作る）。
+export async function reviseEntry(
+  params: { entryId: string; body: string },
+  db: Prisma.TransactionClient = prisma,
+) {
+  const target = await db.entry.findUnique({ where: { id: params.entryId } });
   if (!target) {
     throw new Error(`entry not found: ${params.entryId}`);
   }
@@ -71,7 +119,7 @@ export async function reviseEntry(params: { entryId: string; body: string }) {
   };
   validateEntryInvariants(revision);
 
-  return prisma.entry.create({
+  return db.entry.create({
     data: {
       kind: revision.kind,
       body: params.body,

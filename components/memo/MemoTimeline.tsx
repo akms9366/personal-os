@@ -1,99 +1,89 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { deleteMemoAction } from "@/app/(app)/knowledge/memos/actions";
+import { useCallback, useEffect, useState, useTransition } from "react";
+import {
+  analyzeMemoAction,
+  deleteMemoAction,
+} from "@/app/(app)/knowledge/memos/actions";
 import { MemoAvatar, MemoComposer } from "./MemoComposer";
-import { extractHashtags, tokenizeMemoText } from "@/lib/domain/memo";
+import { MemoPostBody } from "./MemoPostBody";
+import type { MemoPostView } from "./memoView";
 import {
   dangerButtonClass,
   emptyClass,
   ghostButtonClass,
   metaClass,
-  tagClass,
 } from "@/components/ui/styles";
 
-export interface MemoPostView {
-  id: string;
-  /// 投稿テキスト（1行目=title、2行目以降=body）。
-  text: string;
-  tags: string[];
-  /// 相対時刻（"3時間" / "10月4日" など）。
-  timeLabel: string;
-  /// 正確な投稿日時（ホバーで表示）。
-  timeTitle: string;
-  edited: boolean;
-}
+export type { MemoPostView } from "./memoView";
 
-function tagHref(tag: string): string {
-  return `/knowledge/memos?tag=${encodeURIComponent(tag)}`;
-}
+// この画面で自動開始した解析（原情報の版ごと）。同じ投稿が Home とメモページに並んでも、
+// 再描画のたびに何度も開始しない。サーバ側でも版ごとに1回しか実行しない（lib/analysis/run.ts）。
+const autoStarted = new Set<string>();
 
-function displayUrl(url: string): string {
-  const stripped = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  return stripped.length > 40 ? `${stripped.slice(0, 39)}…` : stripped;
-}
-
-function MemoText({ text }: { text: string }) {
-  return (
-    <p className="text-[15px] leading-relaxed break-words whitespace-pre-wrap text-ink">
-      {tokenizeMemoText(text).map((token, index) => {
-        if (token.type === "tag") {
-          return (
-            <Link
-              key={index}
-              href={tagHref(token.value)}
-              className="font-medium text-ink underline decoration-dove underline-offset-2 hover:decoration-ink"
-            >
-              #{token.value}
-            </Link>
-          );
-        }
-        if (token.type === "url") {
-          return (
-            <a
-              key={index}
-              href={token.value}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-[13px] text-steel underline decoration-dove underline-offset-2 hover:text-ink hover:decoration-ink"
-            >
-              {displayUrl(token.value)}
-            </a>
-          );
-        }
-        return token.value;
-      })}
-    </p>
-  );
-}
+/// 別の要求が解析中だったとき、結果を取り直すまでの待ち時間。
+const RECHECK_MS = 4000;
 
 function MemoPost({
   memo,
   tagSuggestions,
+  aiAvailable,
 }: {
   memo: MemoPostView;
   tagSuggestions: string[];
+  aiAvailable: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [deleting, startDelete] = useTransition();
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const analyze = useCallback(async () => {
+    setAnalyzing(true);
+    try {
+      const outcome = await analyzeMemoAction(memo.id);
+      if (outcome.status === "skipped") {
+        // 他の画面・要求が解析中。少し待って結果を取り直す。
+        setTimeout(() => router.refresh(), RECHECK_MS);
+      }
+    } finally {
+      setAnalyzing(false);
+      router.refresh();
+    }
+  }, [memo.id, router]);
+
+  // 投稿直後（解析待ち）の投稿は、表示されたら自動で解析を始める。
+  useEffect(() => {
+    const key = memo.entryId ?? memo.id;
+    if (
+      !aiAvailable ||
+      memo.analysis.state !== "pending" ||
+      autoStarted.has(key)
+    ) {
+      return;
+    }
+    // 描画後に開始する（StrictMode の二重実行でも、片付けで取り消されるため1回だけ）。
+    const timer = setTimeout(() => {
+      if (autoStarted.has(key)) {
+        return;
+      }
+      autoStarted.add(key);
+      void analyze();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [aiAvailable, memo.analysis.state, memo.entryId, memo.id, analyze]);
 
   function handleDelete() {
     const preview = memo.text.split("\n")[0];
     if (!window.confirm(`「${preview}」を削除しますか？`)) {
       return;
     }
-    startTransition(async () => {
+    startDelete(async () => {
       await deleteMemoAction(memo.id);
       router.refresh();
     });
   }
-
-  // 本文に #タグ として現れないタグ（旧データ等）は、本文の下にチップで示す。
-  const inText = extractHashtags(memo.text);
-  const extraTags = memo.tags.filter((tag) => !inText.includes(tag));
 
   return (
     <li className="flex gap-3 py-5">
@@ -115,16 +105,11 @@ function MemoPost({
           />
         ) : (
           <>
-            <MemoText text={memo.text} />
-            {extraTags.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {extraTags.map((tag) => (
-                  <Link key={tag} href={tagHref(tag)} className={tagClass}>
-                    #{tag}
-                  </Link>
-                ))}
-              </div>
-            ) : null}
+            <MemoPostBody
+              memo={memo}
+              analyzing={analyzing}
+              onAnalyze={aiAvailable && !analyzing ? analyze : undefined}
+            />
             <div className="-ml-3 flex gap-1">
               <button
                 type="button"
@@ -136,7 +121,7 @@ function MemoPost({
               <button
                 type="button"
                 onClick={handleDelete}
-                disabled={pending}
+                disabled={deleting}
                 className={`${dangerButtonClass} text-xs`}
               >
                 削除
@@ -149,15 +134,17 @@ function MemoPost({
   );
 }
 
-/// メモのタイムライン（新しい順）。
+/// メモのタイムライン（新しい順）。aiAvailable=false（API キー未設定）でも投稿・表示はそのまま使える。
 export function MemoTimeline({
   memos,
   tagSuggestions,
   emptyText,
+  aiAvailable,
 }: {
   memos: MemoPostView[];
   tagSuggestions: string[];
   emptyText: string;
+  aiAvailable: boolean;
 }) {
   if (memos.length === 0) {
     return <p className={emptyClass}>{emptyText}</p>;
@@ -165,7 +152,12 @@ export function MemoTimeline({
   return (
     <ul className="divide-y divide-dove/60">
       {memos.map((memo) => (
-        <MemoPost key={memo.id} memo={memo} tagSuggestions={tagSuggestions} />
+        <MemoPost
+          key={memo.id}
+          memo={memo}
+          tagSuggestions={tagSuggestions}
+          aiAvailable={aiAvailable}
+        />
       ))}
     </ul>
   );

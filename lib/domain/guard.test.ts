@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EntryInvariantError,
   assertAiCannotWriteOriginal,
+  assertInterpretationSource,
   assertOriginalImmutable,
   assertRevisionTargetIsOriginal,
   validateEntryInvariants,
@@ -155,7 +156,10 @@ describe("S8（振り返り）— S1 と同じ「本人の一次記録」とし�
 
   it("AI origin は振り返り(S8)を更新できない（assertAiCannotWriteOriginal）", () => {
     expect(() =>
-      assertAiCannotWriteOriginal({ actorOrigin: "ai", target: { state: "S8" } }),
+      assertAiCannotWriteOriginal({
+        actorOrigin: "ai",
+        target: { state: "S8" },
+      }),
     ).toThrow(EntryInvariantError);
   });
 
@@ -167,5 +171,41 @@ describe("S8（振り返り）— S1 と同じ「本人の一次記録」とし�
 
   it("振り返り(S8)は revise 対象にできる（assertRevisionTargetIsOriginal）", () => {
     expect(() => assertRevisionTargetIsOriginal({ state: "S8" })).not.toThrow();
+  });
+});
+
+describe("assertInterpretationSource（Issue #20）", () => {
+  it("原情報（S1）だけを AI 解釈の対象にする", () => {
+    expect(() =>
+      assertInterpretationSource({ state: "S1", kind: "note" }),
+    ).not.toThrow();
+    for (const state of ["S2", "S4", "S5", "S8"]) {
+      expect(() => assertInterpretationSource({ state, kind: "note" })).toThrow(
+        EntryInvariantError,
+      );
+    }
+  });
+
+  it("カレンダー由来の予定は解釈しない", () => {
+    expect(() =>
+      assertInterpretationSource({ state: "S1", kind: "event" }),
+    ).toThrow(EntryInvariantError);
+  });
+
+  it("AI の解釈は派生（S2）として親を必須にし、AI は原情報を作れない", () => {
+    expect(() =>
+      validateEntryInvariants({ kind: "note", origin: "ai", state: "S2" }),
+    ).toThrow(EntryInvariantError);
+    expect(() =>
+      validateEntryInvariants({
+        kind: "note",
+        origin: "ai",
+        state: "S2",
+        sourceEntryId: "e1",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateEntryInvariants({ kind: "note", origin: "ai", state: "S1" }),
+    ).toThrow(EntryInvariantError);
   });
 });

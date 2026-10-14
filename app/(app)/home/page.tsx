@@ -4,6 +4,7 @@ import { getSpace } from "@/lib/navigation/spaces";
 import { listTasks } from "@/lib/db/tasks";
 import { getLatestReflection } from "@/lib/db/entries";
 import { listMemos, listTagsWithCount } from "@/lib/db/memos";
+import { isAiConfigured } from "@/lib/ai/client";
 import { getTodayEvents } from "@/lib/calendar/sync";
 import { getTimeOfDay } from "@/lib/home/timeOfDay";
 import { organizeTasks, type TaskStatus } from "@/lib/domain/task";
@@ -41,13 +42,14 @@ export default async function HomePage() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const [tasks, todayEvents, latestReflection, recentMemos, tags] =
+  const [tasks, todayEvents, latestReflection, recentMemos, tags, aiAvailable] =
     await Promise.all([
       listTasks(),
       getTodayEvents(),
       getLatestReflection(todayStart),
       listMemos(undefined, RECENT_MEMO_COUNT),
       listTagsWithCount(),
+      isAiConfigured(),
     ]);
   // 使われている数の多いタグから並べる（同数は名前順）。
   const tagNames = [...tags]
@@ -110,6 +112,7 @@ export default async function HomePage() {
           </div>
           {recentMemos.length > 0 ? (
             <MemoTimeline
+              aiAvailable={aiAvailable}
               tagSuggestions={tagNames}
               emptyText=""
               memos={recentMemos.map((memo) => toMemoPostView(memo, now))}

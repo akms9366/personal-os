@@ -56,8 +56,8 @@ model Entry {
   /// 「派生なら必須／原情報なら null」の条件付き必須は lib/domain のガードで担保する。
   /// onDelete: Restrict — 親を削除すると来歴が失われる（SET NULL は Provenance 改ざん防止に反する。
   /// PR #4 レビュー IMPORTANT 指摘、Issue #8（削除機能）着手にあたり解消）。
-  sourceEntryId String?
-  sourceEntry   Entry?  @relation("EntryProvenance", fields: [sourceEntryId], references: [id], onDelete: Restrict)
+  sourceEntryId  String?
+  sourceEntry    Entry?  @relation("EntryProvenance", fields: [sourceEntryId], references: [id], onDelete: Restrict)
   derivedEntries Entry[] @relation("EntryProvenance")
 
   /// 版参照（Issue #8「修正は新版生成」/ 06 §9・§13「原情報は不変、外部更新は新版追記」）。
@@ -69,6 +69,12 @@ model Entry {
   revisedBy      Entry[] @relation("EntryRevision")
 
   originatedTasks Task[]
+
+  /// この原情報（S1）を「現在版」として表示しているタイムラインの投稿（Issue #20）。
+  memo Memo?
+
+  /// この原情報（S1）の版に対する AI 解析の実行状態（Issue #20。版ごとに最大1行）。
+  aiAnalysis AiAnalysis?
 }
 
 /// Task — 利用者が選んだ行動（06 §3.3 系統B。State Taxonomy S4→S5→S6→S7 相当を軽量に扱う）。
@@ -180,6 +186,12 @@ model Memo {
   updatedAt DateTime @updatedAt
 
   tags Tag[]
+
+  /// タイムライン投稿の原情報（S1 Entry）の現在版（Issue #20）。
+  /// 投稿時に S1 を作り、本文を編集したら新版（Entry.revisesEntryId）を作ってここを付け替える。
+  /// Memo は表示・タグ付け用の可変な層で、原文と来歴の正本は Entry 側に残る。
+  entryId String? @unique
+  entry   Entry?  @relation(fields: [entryId], references: [id], onDelete: Restrict)
 }
 
 /// Tag — メモのタグ。名前の変更・削除ができる。
@@ -223,4 +235,32 @@ model FinanceRecord {
   updatedAt     DateTime @updatedAt
 
   @@index([date])
+}
+
+// AI 解析（S2 解釈の生成）の実行記録（Issue #20）。
+// 実行の状態・失敗は「実行・結果」（S6/S7 系）にあたり Entry の対象外のため、別テーブルに持つ。
+// 解析結果そのものは Entry（origin=ai, state=S2, sourceEntryId=原情報）として保存する。
+model AiAnalysis {
+  id String @id @default(cuid())
+
+  /// 解析対象の原情報（S1）の版。版ごとに1行（重複リクエスト・二重解析の防止）。
+  sourceEntryId String @unique
+  sourceEntry   Entry  @relation(fields: [sourceEntryId], references: [id], onDelete: Cascade)
+
+  /// 許容値: "pending" | "running" | "succeeded" | "failed"。値域は lib/domain/interpretation.ts。
+  status String @default("pending")
+
+  /// 直近の失敗理由（利用者向けの文言）。
+  error String?
+
+  /// 解析に使ったモデル（生成主体の記録）。
+  model String?
+
+  /// 試行回数（再解析・リトライのコスト把握用）。
+  attempts Int @default(0)
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
