@@ -67,6 +67,19 @@ export function validateEntryInvariants(entry: EntryShape): void {
       `ai origin cannot author original (S1) entry`,
     );
   }
+
+  // 所有: 決定（S5）は利用者のみ。AI・外部は決定を作れない（代行・推測確定の禁止, State_Taxonomy §3 S5）。
+  if (state === "S5" && origin !== "human") {
+    throw new EntryInvariantError(
+      `decision (S5) can only be made by the user (origin=${origin})`,
+    );
+  }
+  // 所有: 提案（S4）は AI/ルールが作る。利用者の手書きの記録は S1/S8 であって提案ではない。
+  if (state === "S4" && origin !== "ai") {
+    throw new EntryInvariantError(
+      `suggestion (S4) must be generated (origin=ai), got origin=${origin}`,
+    );
+  }
 }
 
 /// 原情報（S1）の in-place 更新を禁止する（修正は新版生成）。違反時は EntryInvariantError。
@@ -119,5 +132,53 @@ export function assertInterpretationSource(source: {
   }
   if (source.kind === "event") {
     throw new EntryInvariantError(`calendar events are not interpreted`);
+  }
+}
+
+/// 行動候補（S4, Issue #21）の元にできるのは、AI の解釈（S2, origin=ai）だけ。
+export function assertSuggestionSource(source: {
+  state: string;
+  origin: string;
+}): void {
+  if (source.state !== "S2" || source.origin !== "ai") {
+    throw new EntryInvariantError(
+      `a suggestion (S4) must derive from an AI interpretation (S2), got state=${source.state} origin=${source.origin}`,
+    );
+  }
+}
+
+/// 決定（S5, Issue #21）の対象にできるのは、提案（S4）だけ。
+export function assertDecisionTarget(target: { state: string }): void {
+  if (target.state !== "S4") {
+    throw new EntryInvariantError(
+      `a decision (S5) must target a suggestion (S4), got state=${target.state}`,
+    );
+  }
+}
+
+/// 決定の「決め直し」（新しい版）の対象にできるのは、同じ提案への利用者の決定（S5）だけ。
+/// 決定は版管理し、前の決定は書き換えない（可逆・履歴を残す, 06 §9）。
+export function assertDecisionRevisionTarget(
+  previous: { state: string; origin: string; sourceEntryId: string | null },
+  suggestionId: string,
+): void {
+  if (
+    previous.state !== "S5" ||
+    previous.origin !== "human" ||
+    previous.sourceEntryId !== suggestionId
+  ) {
+    throw new EntryInvariantError(
+      `only the user's decision (S5) on the same suggestion can be revised`,
+    );
+  }
+}
+
+/// 派生（S2/S4/S5）の in-place 更新を禁止する。
+/// 解釈・提案の再生成は新しいレコード、決定の変更は新しい版として残す。
+export function assertDerivedImmutable(target: { state: string }): void {
+  if (isEntryState(target.state) && isDerivedState(target.state)) {
+    throw new EntryInvariantError(
+      `derived entry (state=${target.state}) is immutable; create a new record or version instead`,
+    );
   }
 }

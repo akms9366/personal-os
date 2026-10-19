@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./client";
 import { isTaskLevel, isTaskPriority, isTaskStatus } from "@/lib/domain/task";
 
@@ -43,14 +44,18 @@ function assertValidPriority(priority: string | null | undefined): void {
   }
 }
 
-export async function createTask(params: CreateTaskParams) {
+/// db を渡すとそのトランザクション内で作成する（Issue #21: 決定の記録と同時に Task を作る）。
+export async function createTask(
+  params: CreateTaskParams,
+  db: Prisma.TransactionClient = prisma,
+) {
   const status = params.status ?? "todo";
   assertValidStatus(status);
   assertValidPriority(params.priority);
   assertValidLevel("importance", params.importance);
   assertValidLevel("urgency", params.urgency);
 
-  return prisma.task.create({
+  return db.task.create({
     data: {
       title: params.title,
       note: params.note,

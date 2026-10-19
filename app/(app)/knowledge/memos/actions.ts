@@ -11,6 +11,7 @@ import {
   updateMemoPost,
 } from "@/lib/db/memos";
 import { isAiConfigured } from "@/lib/ai/client";
+import { decideSuggestion, type DecideResult } from "@/lib/db/suggestions";
 import { runAnalysis, type AnalysisOutcome } from "@/lib/analysis/run";
 
 export interface MemoActionState {
@@ -72,6 +73,45 @@ export async function analyzeMemoAction(
   } finally {
     revalidatePath("/", "layout");
   }
+}
+
+/// 行動候補（S4）への利用者の決定（採用・却下・保留）。AI は決定しない（利用者の操作でだけ呼ばれる）。
+/// 採用のときだけ Task が作られる。クライアントからの値は信用せず、ここで型を確かめてからドメインで検証する。
+export async function decideSuggestionAction(input: {
+  suggestionId: string;
+  decision: string;
+  reason?: string | null;
+  note?: string | null;
+  final?: {
+    title: string;
+    dueDate: string;
+    dueTime: string;
+    importance: number | null;
+    urgency: number | null;
+  } | null;
+}): Promise<DecideResult> {
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+  const level = (value: unknown) =>
+    typeof value === "number" && Number.isInteger(value) ? value : null;
+  const final = input.final
+    ? {
+        title: text(input.final.title),
+        dueDate: text(input.final.dueDate),
+        dueTime: text(input.final.dueTime),
+        importance: level(input.final.importance),
+        urgency: level(input.final.urgency),
+      }
+    : null;
+
+  const result = await decideSuggestion(text(input.suggestionId), {
+    decision: text(input.decision),
+    reason: input.reason ? text(input.reason) : null,
+    note: text(input.note),
+    final,
+  });
+  // タスクが増えるので Home も更新する。
+  revalidatePath("/", "layout");
+  return result;
 }
 
 export async function deleteMemoAction(memoId: string): Promise<void> {

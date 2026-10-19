@@ -96,6 +96,7 @@ describe("MemoPostBody", () => {
         interpretation,
         generatedLabel: "10/15(木) 12:00",
         model: "claude-sonnet-5",
+        suggestions: [],
       }),
     );
     // 原文 → AI 解釈の順で、同じ投稿の中に出る。
@@ -116,6 +117,7 @@ describe("MemoPostBody", () => {
         interpretation,
         generatedLabel: "10/15(木) 12:00",
         model: null,
+        suggestions: [],
       }),
     );
     // 確定タグ「あとで」は本文に無いのでタグのリンクとして出る。
@@ -132,6 +134,7 @@ describe("MemoPostBody", () => {
         interpretation: null,
         generatedLabel: "",
         model: null,
+        suggestions: [],
       }),
     );
     expect(html).toContain("解析結果を読み込めませんでした");

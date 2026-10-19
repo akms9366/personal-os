@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   EntryInvariantError,
   assertAiCannotWriteOriginal,
+  assertDecisionRevisionTarget,
+  assertDecisionTarget,
+  assertDerivedImmutable,
   assertInterpretationSource,
+  assertSuggestionSource,
   assertOriginalImmutable,
   assertRevisionTargetIsOriginal,
   validateEntryInvariants,
@@ -207,5 +211,83 @@ describe("assertInterpretationSource（Issue #20）", () => {
     expect(() =>
       validateEntryInvariants({ kind: "note", origin: "ai", state: "S1" }),
     ).toThrow(EntryInvariantError);
+  });
+});
+
+describe("S4 提案・S5 決定のガード（Issue #21）", () => {
+  it("決定（S5）は利用者のみ。AI・外部は作れない", () => {
+    const decision = { kind: "note", state: "S5", sourceEntryId: "s4" };
+    expect(() =>
+      validateEntryInvariants({ ...decision, origin: "human" }),
+    ).not.toThrow();
+    expect(() =>
+      validateEntryInvariants({ ...decision, origin: "ai" }),
+    ).toThrow(EntryInvariantError);
+    expect(() =>
+      validateEntryInvariants({ ...decision, origin: "external" }),
+    ).toThrow(EntryInvariantError);
+  });
+
+  it("提案（S4）は生成物（origin=ai）。利用者の手書きの提案は作れず、親も必須", () => {
+    const suggestion = { kind: "note", state: "S4", sourceEntryId: "s2" };
+    expect(() =>
+      validateEntryInvariants({ ...suggestion, origin: "ai" }),
+    ).not.toThrow();
+    expect(() =>
+      validateEntryInvariants({ ...suggestion, origin: "human" }),
+    ).toThrow(EntryInvariantError);
+    expect(() =>
+      validateEntryInvariants({
+        ...suggestion,
+        origin: "ai",
+        sourceEntryId: null,
+      }),
+    ).toThrow(EntryInvariantError);
+  });
+
+  it("提案の元は AI の解釈（S2）だけ", () => {
+    expect(() =>
+      assertSuggestionSource({ state: "S2", origin: "ai" }),
+    ).not.toThrow();
+    for (const state of ["S1", "S4", "S5", "S8"]) {
+      expect(() => assertSuggestionSource({ state, origin: "ai" })).toThrow(
+        EntryInvariantError,
+      );
+    }
+    expect(() =>
+      assertSuggestionSource({ state: "S2", origin: "human" }),
+    ).toThrow(EntryInvariantError);
+  });
+
+  it("決定の対象は提案（S4）だけ", () => {
+    expect(() => assertDecisionTarget({ state: "S4" })).not.toThrow();
+    for (const state of ["S1", "S2", "S5"]) {
+      expect(() => assertDecisionTarget({ state })).toThrow(
+        EntryInvariantError,
+      );
+    }
+  });
+
+  it("決め直しの対象は、同じ提案への利用者の決定（S5）だけ", () => {
+    const previous = { state: "S5", origin: "human", sourceEntryId: "s4" };
+    expect(() => assertDecisionRevisionTarget(previous, "s4")).not.toThrow();
+    expect(() => assertDecisionRevisionTarget(previous, "other")).toThrow(
+      EntryInvariantError,
+    );
+    expect(() =>
+      assertDecisionRevisionTarget({ ...previous, origin: "ai" }, "s4"),
+    ).toThrow(EntryInvariantError);
+    expect(() =>
+      assertDecisionRevisionTarget({ ...previous, state: "S4" }, "s4"),
+    ).toThrow(EntryInvariantError);
+  });
+
+  it("派生（S2/S4/S5）は in-place 更新できない", () => {
+    for (const state of ["S2", "S4", "S5"]) {
+      expect(() => assertDerivedImmutable({ state })).toThrow(
+        EntryInvariantError,
+      );
+    }
+    expect(() => assertDerivedImmutable({ state: "S1" })).not.toThrow();
   });
 });
