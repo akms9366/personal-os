@@ -3,7 +3,7 @@
 //           §9.4（外部サービス名を主ナビにしない）,
 //           docs/99_Reference/Module_Layer_Space_Mapping.md §4。
 //
-// ここが 5 Space の唯一の定義元。ナビゲーション（components/navigation）と
+// ここが Space の唯一の定義元。ナビゲーション（components/navigation）と
 // 各ページ（app/(app)/*）はこの配列・ヘルパを参照し、順序と語彙を一元管理する。
 // 順序は §9.1 の主ナビ優先順位（利用頻度と意思決定の順序）に一致させる。
 
@@ -22,7 +22,7 @@ export interface Space {
   status: SpaceStatus;
 }
 
-/// 5 Space（05 §9.1 の固定順序）。MVP では Home のみ active、他は stub。
+/// Space の一覧（05 §9.1 の 5 Space の固定順序に、利用者の要望で Study を加えた）。
 export const SPACES: readonly Space[] = [
   {
     slug: "home",
@@ -43,6 +43,14 @@ export const SPACES: readonly Space[] = [
     label: "Knowledge",
     title: "Knowledge",
     purpose: "記録・探索・再発見",
+    status: "active",
+  },
+  {
+    // 利用者の要望で追加した 6 つ目の Space（資格試験のドリルと弱点分析）。
+    slug: "study",
+    label: "Study",
+    title: "Study",
+    purpose: "資格試験のドリルと弱点の分析",
     status: "active",
   },
   {

@@ -264,3 +264,85 @@ model AiAnalysis {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
+
+// ---- Study（資格試験のドリル） ----
+// 問題集は lib/study の中にコードで持ち、DB には「いつ・どの問題に・どう答えたか」だけを残す。
+// 解答記録には出題時点の問題文・選択肢・正答を写して保存する（問題集を後で直しても記録は変わらない）。
+
+/// StudySession — 1回のドリル。出題する問題と順序を開始時に固定する（途中から再開できる）。
+model StudySession {
+  id String @id @default(cuid())
+
+  /// 試験の識別子。許容値: "sg"（情報セキュリティマネジメント試験）。値域は lib/study/exams.ts。
+  exam String
+
+  /// 出題モード。許容値: "random" | "unanswered" | "weak" | "review" | "retry"。値域は lib/study/drill.ts。
+  mode String
+
+  /// 絞り込んだ分野 ID の JSON 配列。全分野なら "[]"。
+  categories String @default("[]")
+
+  /// 出題する問題 ID の JSON 配列（出題順）。
+  questionIds String
+
+  startedAt  DateTime  @default(now())
+  /// すべての問題に解答した時点。途中で止めたドリルは null のまま。
+  finishedAt DateTime?
+
+  attempts StudyAttempt[]
+
+  @@index([exam, startedAt])
+}
+
+/// StudyAttempt — 1問への解答記録。正答・解説も出題時点のまま写して残す。
+model StudyAttempt {
+  id String @id @default(cuid())
+
+  sessionId String
+  session   StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  exam       String
+  questionId String
+  category   String
+  topic      String
+
+  /// 出題時点の問題文・選択肢（JSON 配列）・正答の番号（0 始まり）・解説。
+  stem         String
+  choices      String
+  correctIndex Int
+  explanation  String
+
+  /// 選んだ選択肢の番号（0 始まり）。
+  selectedIndex Int
+  isCorrect     Boolean
+  /// 「自信なし（勘で答えた）」と利用者が付けた解答。正解でも定着とはみなさない。
+  unsure        Boolean @default(false)
+
+  answeredAt DateTime @default(now())
+
+  /// 1回のドリルで同じ問題には1度だけ答える（二重送信の防止）。
+  @@unique([sessionId, questionId])
+  @@index([exam, answeredAt])
+  @@index([exam, questionId])
+}
+
+/// StudyAdvice — AI による学習アドバイス（S4 提案に相当。何を学ぶかは利用者が決める）。
+/// 生成時点の解答数を残し、どの記録を基にした提案かを辿れるようにする。
+model StudyAdvice {
+  id String @id @default(cuid())
+
+  exam String
+
+  /// アドバイス本文（構造化した JSON。形は lib/study/advice.ts）。
+  body String
+
+  /// 生成に使ったモデル（生成主体の記録）。
+  model String
+
+  /// 生成時点の解答数。
+  attemptCount Int
+
+  createdAt DateTime @default(now())
+
+  @@index([exam, createdAt])
+}

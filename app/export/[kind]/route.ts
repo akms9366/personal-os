@@ -5,7 +5,10 @@ import { toCsv, type CsvValue } from "@/lib/csv/csv";
 import { prisma } from "@/lib/db/client";
 import { listAllVisitsForExport } from "@/lib/db/hospital";
 import { listAllFinanceRecords } from "@/lib/db/finance";
+import { listAllAttemptsForExport, parseStringList } from "@/lib/db/study";
 import { FINANCE_TYPE_LABELS, isFinanceType } from "@/lib/domain/finance";
+import { categoryLabel, getExam } from "@/lib/study/exams";
+import { CHOICE_LABELS } from "@/lib/study/types";
 import { toJstDateString, toJstTimeString, todayJst } from "@/lib/time/jst";
 
 // 各データの CSV 出力。GET /export/<kind>
@@ -152,6 +155,40 @@ const EXPORTERS: Record<string, Exporter> = {
         r.memo,
         r.source === "ai" ? "AI" : "手入力",
       ]),
+    };
+  },
+  async study() {
+    const attempts = await listAllAttemptsForExport();
+    return {
+      name: "study-attempts",
+      headers: [
+        "解答日時",
+        "試験",
+        "分野",
+        "論点",
+        "問題ID",
+        "問題文",
+        "選んだ答え",
+        "正答",
+        "正誤",
+        "自信なし",
+      ],
+      rows: attempts.map((a) => {
+        const exam = getExam(a.exam);
+        const choices = parseStringList(a.choices);
+        return [
+          jstDateTime(a.answeredAt),
+          exam?.shortName ?? a.exam,
+          exam ? categoryLabel(exam, a.category) : a.category,
+          a.topic,
+          a.questionId,
+          a.stem,
+          `${CHOICE_LABELS[a.selectedIndex]} ${choices[a.selectedIndex] ?? ""}`,
+          `${CHOICE_LABELS[a.correctIndex]} ${choices[a.correctIndex] ?? ""}`,
+          a.isCorrect ? "正解" : "不正解",
+          a.unsure ? "○" : "",
+        ];
+      }),
     };
   },
 };
